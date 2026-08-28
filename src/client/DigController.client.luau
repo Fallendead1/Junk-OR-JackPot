@@ -3,6 +3,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
+local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
+local ShovelTable = require(ReplicatedStorage.Modules.ShovelTable)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -12,14 +14,22 @@ local requestDig = remotes:WaitForChild("RequestDig")
 local requestSellBlind = remotes:WaitForChild("RequestSellBlind")
 local requestOpen = remotes:WaitForChild("RequestOpen")
 local requestSellItem = remotes:WaitForChild("RequestSellItem")
+local requestBuyUpgrade = remotes:WaitForChild("RequestBuyUpgrade")
 local lumpSpawned = remotes:WaitForChild("LumpSpawned")
 local blindSold = remotes:WaitForChild("BlindSold")
 local revealResult = remotes:WaitForChild("RevealResult")
 local openRefused = remotes:WaitForChild("OpenRefused")
 local catalogueUpdated = remotes:WaitForChild("CatalogueUpdated")
+local upgradePurchased = remotes:WaitForChild("UpgradePurchased")
+local upgradeRefused = remotes:WaitForChild("UpgradeRefused")
 
-local digSpot = Workspace:WaitForChild("DigSpot")
-local prompt = digSpot:WaitForChild("ProximityPrompt")
+-- Each zone has its own physical dig spot + prompt. The prompt's HoldDuration
+-- starts at the zone's base (Rusty shovel) time; onUpgradePurchased below
+-- corrects it locally once we know the player's real shovel tier.
+local ZONE_DIG_SPOTS = {
+	[1] = Workspace:WaitForChild("DigSpot"),
+	[2] = Workspace:WaitForChild("DigSpot2"),
+}
 
 -- Display-only. Source: GDD §4.3.
 local TIER_COLORS = {
@@ -131,6 +141,8 @@ sellItemButton.TextScaled = true
 sellItemButton.Parent = revealPanel
 
 local currentInventoryIndex = nil
+local currentShovelTier = 1
+local currentCatalogueCount = 0
 
 -- Catalogue button + grid
 local catalogueButton = Instance.new("TextButton")
@@ -273,11 +285,14 @@ local function showHints(lumpId, hints)
 	label.Parent = billboard
 end
 
-prompt.Triggered:Connect(function(triggeringPlayer)
-	if triggeringPlayer == player then
-		requestDig:FireServer()
-	end
-end)
+for _, digSpot in pairs(ZONE_DIG_SPOTS) do
+	local zonePrompt = digSpot:WaitForChild("ProximityPrompt")
+	zonePrompt.Triggered:Connect(function(triggeringPlayer)
+		if triggeringPlayer == player then
+			requestDig:FireServer()
+		end
+	end)
+end
 
 sellButton.Activated:Connect(function()
 	if currentLumpId then
@@ -311,6 +326,99 @@ end)
 catalogueCloseButton.Activated:Connect(function()
 	catalogueFrame.Visible = false
 end)
+
+-- Shop: shovel upgrade + Zone 2 unlock
+local shopButton = Instance.new("TextButton")
+shopButton.Name = "ShopButton"
+shopButton.Text = "SHOP"
+shopButton.Size = UDim2.fromOffset(160, 40)
+shopButton.Position = UDim2.new(0, 20, 0, 70)
+shopButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+shopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+shopButton.TextScaled = true
+shopButton.Parent = screenGui
+
+local shopFrame = Instance.new("Frame")
+shopFrame.Name = "ShopFrame"
+shopFrame.Size = UDim2.fromOffset(360, 260)
+shopFrame.Position = UDim2.new(0, 20, 0, 120)
+shopFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+shopFrame.Visible = false
+shopFrame.Parent = screenGui
+
+local shovelLabel = Instance.new("TextLabel")
+shovelLabel.Name = "ShovelLabel"
+shovelLabel.Size = UDim2.new(1, -20, 0, 50)
+shovelLabel.Position = UDim2.new(0, 10, 0, 10)
+shovelLabel.BackgroundTransparency = 1
+shovelLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+shovelLabel.TextWrapped = true
+shovelLabel.TextScaled = true
+shovelLabel.Font = Enum.Font.Gotham
+shovelLabel.Parent = shopFrame
+
+local buyShovelButton = Instance.new("TextButton")
+buyShovelButton.Name = "BuyShovelButton"
+buyShovelButton.Size = UDim2.new(1, -20, 0, 40)
+buyShovelButton.Position = UDim2.new(0, 10, 0, 65)
+buyShovelButton.BackgroundColor3 = Color3.fromRGB(50, 100, 180)
+buyShovelButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+buyShovelButton.TextScaled = true
+buyShovelButton.Parent = shopFrame
+
+local zoneLabel = Instance.new("TextLabel")
+zoneLabel.Name = "ZoneLabel"
+zoneLabel.Size = UDim2.new(1, -20, 0, 70)
+zoneLabel.Position = UDim2.new(0, 10, 0, 120)
+zoneLabel.BackgroundTransparency = 1
+zoneLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+zoneLabel.TextWrapped = true
+zoneLabel.TextScaled = true
+zoneLabel.Font = Enum.Font.Gotham
+zoneLabel.Parent = shopFrame
+
+local buyZoneButton = Instance.new("TextButton")
+buyZoneButton.Name = "BuyZoneButton"
+buyZoneButton.Text = "UNLOCK THE QUARRY"
+buyZoneButton.Size = UDim2.new(1, -20, 0, 40)
+buyZoneButton.Position = UDim2.new(0, 10, 0, 200)
+buyZoneButton.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+buyZoneButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+buyZoneButton.TextScaled = true
+buyZoneButton.Parent = shopFrame
+
+shopButton.Activated:Connect(function()
+	shopFrame.Visible = not shopFrame.Visible
+end)
+
+buyShovelButton.Activated:Connect(function()
+	requestBuyUpgrade:FireServer("shovel", currentShovelTier + 1)
+end)
+
+buyZoneButton.Activated:Connect(function()
+	requestBuyUpgrade:FireServer("zone", 2)
+end)
+
+local ZONE_2_REQUIREMENT = ZoneTable[2].requirement
+
+local function refreshShopUI()
+	local currentShovel = ShovelTable[currentShovelTier]
+	local nextShovel = ShovelTable[currentShovelTier + 1]
+
+	if nextShovel then
+		shovelLabel.Text = "Shovel: " .. currentShovel.name .. "\nNext: " .. nextShovel.name .. " — " .. nextShovel.cost .. " coins"
+		buyShovelButton.Text = "BUY " .. string.upper(nextShovel.name) .. " — " .. nextShovel.cost
+		buyShovelButton.Visible = true
+	else
+		shovelLabel.Text = "Shovel: " .. currentShovel.name .. " (max for now)"
+		buyShovelButton.Visible = false
+	end
+
+	zoneLabel.Text = "The Quarry: " .. ZoneTable[2].unlockCost .. " coins + "
+		.. ZONE_2_REQUIREMENT.catalogueEntries .. " catalogue entries (you have " .. currentCatalogueCount .. ")"
+end
+
+refreshShopUI()
 
 lumpSpawned.OnClientEvent:Connect(function(lumpId, hints, blindOffer, openCost)
 	currentLumpId = lumpId
@@ -354,4 +462,41 @@ end)
 
 catalogueUpdated.OnClientEvent:Connect(function(catalogueData, catalogueCount)
 	refreshCatalogue(catalogueData, catalogueCount)
+	currentCatalogueCount = catalogueCount or 0
+	refreshShopUI()
+end)
+
+upgradePurchased.OnClientEvent:Connect(function(upgradeType, tier)
+	if upgradeType == "shovel" then
+		currentShovelTier = tier
+		refreshShopUI()
+
+		-- Correct each zone's prompt to this player's real hold time. A
+		-- shared Part's property write from a LocalScript only affects this
+		-- client's own view of it -- other players still see their own.
+		local multiplier = ShovelTable[tier].digTimeMultiplier
+		for zoneNumber, digSpot in pairs(ZONE_DIG_SPOTS) do
+			local zonePrompt = digSpot:FindFirstChild("ProximityPrompt")
+			if zonePrompt then
+				zonePrompt.HoldDuration = ZoneTable[zoneNumber].digTime * multiplier
+			end
+		end
+	elseif upgradeType == "zone" then
+		statusLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
+		statusLabel.Text = "Unlocked " .. ZoneTable[tier].name .. "!"
+		task.delay(3, function()
+			statusLabel.Text = ""
+		end)
+	end
+end)
+
+upgradeRefused.OnClientEvent:Connect(function(reason)
+	statusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
+	statusLabel.Text = reason
+
+	task.delay(3, function()
+		if statusLabel.Text == reason then
+			statusLabel.Text = ""
+		end
+	end)
 end)

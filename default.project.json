@@ -102,6 +102,64 @@
             "RequiresLineOfSight": false
           }
         }
+      },
+      "TrashMound2": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": true,
+          "Locked": true,
+          "Material": "Rock",
+          "Color": [
+            0.4,
+            0.45,
+            0.55
+          ],
+          "Position": [
+            60,
+            4,
+            -10
+          ],
+          "Size": [
+            20,
+            8,
+            20
+          ]
+        }
+      },
+      "DigSpot2": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": false,
+          "Locked": true,
+          "Material": "Neon",
+          "Color": [
+            0.3,
+            0.7,
+            1
+          ],
+          "Position": [
+            60,
+            8.5,
+            -10
+          ],
+          "Size": [
+            3,
+            1,
+            3
+          ]
+        },
+        "ProximityPrompt": {
+          "$className": "ProximityPrompt",
+          "$properties": {
+            "ActionText": "Dig",
+            "ObjectText": "The Quarry",
+            "HoldDuration": 3.5,
+            "MaxActivationDistance": 10,
+            "RequiresLineOfSight": false
+          }
+        }
       }
     },
     "Lighting": {

@@ -10,10 +10,37 @@ local LumpService = require(ServerScriptService.Services.LumpService)
 local EconomyService = require(ServerScriptService.Services.EconomyService)
 local RevealService = require(ServerScriptService.Services.RevealService)
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
+local UpgradeService = require(ServerScriptService.Services.UpgradeService)
 
 local DigService = {}
 
 local lastDigTimeByPlayer = {}
+
+-- Each zone's dig region is anchored on its DigSpot part. "Region gating"
+-- here means: the server checks the player's actual position against this
+-- radius rather than trusting anything the client claims about where it is.
+local ZONE_DIG_SPOT_NAMES = { [1] = "DigSpot", [2] = "DigSpot2" }
+local ZONE_REGION_RADIUS = 15
+
+local function getPlayerZone(player, profile)
+	local character = player.Character
+	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then
+		return nil
+	end
+
+	-- Checked deepest-zone-first so overlapping regions favor the deeper zone.
+	for zoneNumber = 2, 1, -1 do
+		if profile.Data.zonesUnlocked[zoneNumber] then
+			local digSpot = Workspace:FindFirstChild(ZONE_DIG_SPOT_NAMES[zoneNumber])
+			if digSpot and (rootPart.Position - digSpot.Position).Magnitude <= ZONE_REGION_RADIUS then
+				return zoneNumber
+			end
+		end
+	end
+
+	return nil
+end
 
 -- GDD §5.4/§10.1: open cost is fixed per zone (already baked into ZoneTable
 -- from Phase 0 as round(OPEN_COST_RATIO * BlendedEV[zone])), scaled by the
@@ -32,18 +59,25 @@ local function onRequestDig(player)
 		return -- already holding a lump
 	end
 
-	local zone = ZoneTable[1] -- only Zone 1 exists until Phase 7
-	local lastDigTime = lastDigTimeByPlayer[player] or 0
-	if os.clock() - lastDigTime < zone.digTime + Config.DIG_COOLDOWN_GRACE then
-		return -- server-side cooldown not met; the client can't be trusted to have actually held the prompt
-	end
-
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return
 	end
 
-	local lump = LumpService.CreateLump(player, 1)
+	local zoneNumber = getPlayerZone(player, profile)
+	if not zoneNumber then
+		return -- not standing in a zone the player has unlocked
+	end
+
+	local zone = ZoneTable[zoneNumber]
+	local digTime = zone.digTime * UpgradeService.GetDigTimeMultiplier(profile)
+
+	local lastDigTime = lastDigTimeByPlayer[player] or 0
+	if os.clock() - lastDigTime < digTime + Config.DIG_COOLDOWN_GRACE then
+		return -- server-side cooldown not met; the client can't be trusted to have actually held the prompt
+	end
+
+	local lump = LumpService.CreateLump(player, zoneNumber)
 	if not lump then
 		return -- character not ready
 	end
@@ -131,10 +165,14 @@ local function onRequestSellItem(player, inventoryIndex)
 end
 
 function DigService.Init()
-	local zone = ZoneTable[1]
-	local digSpot = Workspace:WaitForChild("DigSpot")
-	local prompt = digSpot:WaitForChild("ProximityPrompt")
-	prompt.HoldDuration = zone.digTime
+	-- Base (Rusty shovel) hold time per zone. A player with a better shovel
+	-- gets their own local override to the true faster time -- see
+	-- DigController's handling of UpgradePurchased.
+	for zoneNumber, digSpotName in pairs(ZONE_DIG_SPOT_NAMES) do
+		local digSpot = Workspace:WaitForChild(digSpotName)
+		local prompt = digSpot:WaitForChild("ProximityPrompt")
+		prompt.HoldDuration = ZoneTable[zoneNumber].digTime
+	end
 
 	local remotes = ReplicatedStorage.Remotes
 	remotes.RequestDig.OnServerEvent:Connect(onRequestDig)
