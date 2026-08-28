@@ -23,6 +23,7 @@ end
 
 -- Add service names here, in the exact order they must initialise.
 local SERVICE_INIT_ORDER = {
+	"PlayerDataService",
 	"DigService",
 }
 
