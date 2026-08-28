@@ -1,3 +1,3 @@
 return function()
-	print("Hello, world!")
+	print("TEST: Claude Code sync works")
 end
