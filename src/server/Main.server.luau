@@ -13,6 +13,8 @@ local REMOTE_EVENT_NAMES = {
 	"RevealResult",
 	"OpenRefused",
 	"CoinsChanged",
+	"CatalogueUpdated",
+	"RequestSellItem",
 }
 
 local remotesFolder = Instance.new("Folder")

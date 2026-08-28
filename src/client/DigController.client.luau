@@ -2,6 +2,8 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
+local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
+
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -9,10 +11,12 @@ local remotes = ReplicatedStorage:WaitForChild("Remotes")
 local requestDig = remotes:WaitForChild("RequestDig")
 local requestSellBlind = remotes:WaitForChild("RequestSellBlind")
 local requestOpen = remotes:WaitForChild("RequestOpen")
+local requestSellItem = remotes:WaitForChild("RequestSellItem")
 local lumpSpawned = remotes:WaitForChild("LumpSpawned")
 local blindSold = remotes:WaitForChild("BlindSold")
 local revealResult = remotes:WaitForChild("RevealResult")
 local openRefused = remotes:WaitForChild("OpenRefused")
+local catalogueUpdated = remotes:WaitForChild("CatalogueUpdated")
 
 local digSpot = Workspace:WaitForChild("DigSpot")
 local prompt = digSpot:WaitForChild("ProximityPrompt")
@@ -28,8 +32,16 @@ local TIER_COLORS = {
 	Relic = Color3.fromHex("#EF4444"),
 }
 
--- TEMPORARY: this whole screen is replaced by the real HUD once catalogue,
--- inventory, and keep/sell exist starting Phase 6.
+-- Stable display order for the 60 catalogue slots (ItemTable's pairs() order
+-- isn't guaranteed).
+local allItemIds = {}
+for itemId in pairs(ItemTable) do
+	table.insert(allItemIds, itemId)
+end
+table.sort(allItemIds)
+
+-- TEMPORARY: this whole screen is replaced by the real HUD once the shelf and
+-- shop exist starting Phase 7+.
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "TempDigUI"
 screenGui.ResetOnSpawn = false
@@ -70,6 +82,165 @@ statusLabel.TextScaled = true
 statusLabel.Font = Enum.Font.GothamBold
 statusLabel.Text = ""
 statusLabel.Parent = screenGui
+
+-- Reveal / KEEP / SELL panel
+local revealPanel = Instance.new("Frame")
+revealPanel.Name = "RevealPanel"
+revealPanel.Size = UDim2.fromOffset(420, 170)
+revealPanel.Position = UDim2.new(0.5, -210, 0.3, 0)
+revealPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+revealPanel.Visible = false
+revealPanel.Parent = screenGui
+
+local revealNameLabel = Instance.new("TextLabel")
+revealNameLabel.Name = "NameLabel"
+revealNameLabel.Size = UDim2.new(1, 0, 0.35, 0)
+revealNameLabel.BackgroundTransparency = 1
+revealNameLabel.Font = Enum.Font.GothamBold
+revealNameLabel.TextScaled = true
+revealNameLabel.Parent = revealPanel
+
+local revealDetailLabel = Instance.new("TextLabel")
+revealDetailLabel.Name = "DetailLabel"
+revealDetailLabel.Size = UDim2.new(1, 0, 0.25, 0)
+revealDetailLabel.Position = UDim2.new(0, 0, 0.35, 0)
+revealDetailLabel.BackgroundTransparency = 1
+revealDetailLabel.Font = Enum.Font.Gotham
+revealDetailLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
+revealDetailLabel.TextScaled = true
+revealDetailLabel.Parent = revealPanel
+
+local keepButton = Instance.new("TextButton")
+keepButton.Name = "KeepButton"
+keepButton.Text = "KEEP"
+keepButton.Size = UDim2.new(0.45, 0, 0.3, 0)
+keepButton.Position = UDim2.new(0.025, 0, 0.65, 0)
+keepButton.BackgroundColor3 = Color3.fromRGB(60, 100, 160)
+keepButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+keepButton.TextScaled = true
+keepButton.Parent = revealPanel
+
+local sellItemButton = Instance.new("TextButton")
+sellItemButton.Name = "SellItemButton"
+sellItemButton.Text = "SELL"
+sellItemButton.Size = UDim2.new(0.45, 0, 0.3, 0)
+sellItemButton.Position = UDim2.new(0.525, 0, 0.65, 0)
+sellItemButton.BackgroundColor3 = Color3.fromRGB(40, 140, 60)
+sellItemButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+sellItemButton.TextScaled = true
+sellItemButton.Parent = revealPanel
+
+local currentInventoryIndex = nil
+
+-- Catalogue button + grid
+local catalogueButton = Instance.new("TextButton")
+catalogueButton.Name = "CatalogueButton"
+catalogueButton.Text = "CATALOGUE"
+catalogueButton.Size = UDim2.fromOffset(160, 40)
+catalogueButton.Position = UDim2.new(0, 20, 0, 20)
+catalogueButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
+catalogueButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+catalogueButton.TextScaled = true
+catalogueButton.Parent = screenGui
+
+local catalogueFrame = Instance.new("Frame")
+catalogueFrame.Name = "CatalogueFrame"
+catalogueFrame.Size = UDim2.fromScale(0.6, 0.7)
+catalogueFrame.Position = UDim2.fromScale(0.2, 0.1)
+catalogueFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
+catalogueFrame.Visible = false
+catalogueFrame.Parent = screenGui
+
+local catalogueTitle = Instance.new("TextLabel")
+catalogueTitle.Name = "Title"
+catalogueTitle.Size = UDim2.new(1, -40, 0, 40)
+catalogueTitle.BackgroundTransparency = 1
+catalogueTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
+catalogueTitle.Font = Enum.Font.GothamBold
+catalogueTitle.TextScaled = true
+catalogueTitle.Text = "CATALOGUE (0 / " .. #allItemIds .. ")"
+catalogueTitle.Parent = catalogueFrame
+
+local catalogueCloseButton = Instance.new("TextButton")
+catalogueCloseButton.Text = "X"
+catalogueCloseButton.Size = UDim2.fromOffset(30, 30)
+catalogueCloseButton.Position = UDim2.new(1, -35, 0, 5)
+catalogueCloseButton.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
+catalogueCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+catalogueCloseButton.Parent = catalogueFrame
+
+local catalogueScroll = Instance.new("ScrollingFrame")
+catalogueScroll.Size = UDim2.new(1, 0, 1, -40)
+catalogueScroll.Position = UDim2.new(0, 0, 0, 40)
+catalogueScroll.BackgroundTransparency = 1
+catalogueScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+catalogueScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+catalogueScroll.ScrollBarThickness = 8
+catalogueScroll.Parent = catalogueFrame
+
+local catalogueGrid = Instance.new("UIGridLayout")
+catalogueGrid.CellSize = UDim2.fromOffset(90, 90)
+catalogueGrid.CellPadding = UDim2.fromOffset(6, 6)
+catalogueGrid.Parent = catalogueScroll
+
+local slotsByItemId = {}
+
+for _, itemId in ipairs(allItemIds) do
+	local slot = Instance.new("Frame")
+	slot.Name = itemId
+	slot.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+	slot.Parent = catalogueScroll
+
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Name = "NameLabel"
+	nameLabel.Size = UDim2.new(1, -4, 0.6, 0)
+	nameLabel.Position = UDim2.new(0, 2, 0, 2)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = Color3.fromRGB(90, 90, 90)
+	nameLabel.TextScaled = true
+	nameLabel.TextWrapped = true
+	nameLabel.Font = Enum.Font.Gotham
+	nameLabel.Text = "?"
+	nameLabel.Parent = slot
+
+	local countLabel = Instance.new("TextLabel")
+	countLabel.Name = "CountLabel"
+	countLabel.Size = UDim2.new(1, -4, 0.3, 0)
+	countLabel.Position = UDim2.new(0, 2, 0.65, 0)
+	countLabel.BackgroundTransparency = 1
+	countLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+	countLabel.TextScaled = true
+	countLabel.Font = Enum.Font.Gotham
+	countLabel.Text = ""
+	countLabel.Parent = slot
+
+	slotsByItemId[itemId] = slot
+end
+
+local function refreshCatalogue(catalogueData, catalogueCount)
+	catalogueTitle.Text = "CATALOGUE (" .. (catalogueCount or 0) .. " / " .. #allItemIds .. ")"
+
+	for _, itemId in ipairs(allItemIds) do
+		local slot = slotsByItemId[itemId]
+		local entry = catalogueData and catalogueData[itemId]
+
+		if entry and entry.found then
+			local item = ItemTable[itemId]
+			slot.BackgroundColor3 = TIER_COLORS[item.tier] or Color3.fromRGB(45, 45, 50)
+			slot.NameLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+			slot.NameLabel.Text = item.name
+			slot.CountLabel.TextColor3 = Color3.fromRGB(0, 0, 0)
+			slot.CountLabel.Text = "x" .. entry.count
+		else
+			slot.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+			slot.NameLabel.TextColor3 = Color3.fromRGB(90, 90, 90)
+			slot.NameLabel.Text = "?"
+			slot.CountLabel.Text = ""
+		end
+	end
+end
+
+refreshCatalogue({}, 0)
 
 local function hideLumpButtons()
 	currentLumpId = nil
@@ -120,6 +291,27 @@ openButton.Activated:Connect(function()
 	end
 end)
 
+keepButton.Activated:Connect(function()
+	revealPanel.Visible = false
+	currentInventoryIndex = nil
+end)
+
+sellItemButton.Activated:Connect(function()
+	if currentInventoryIndex then
+		requestSellItem:FireServer(currentInventoryIndex)
+	end
+	revealPanel.Visible = false
+	currentInventoryIndex = nil
+end)
+
+catalogueButton.Activated:Connect(function()
+	catalogueFrame.Visible = not catalogueFrame.Visible
+end)
+
+catalogueCloseButton.Activated:Connect(function()
+	catalogueFrame.Visible = false
+end)
+
 lumpSpawned.OnClientEvent:Connect(function(lumpId, hints, blindOffer, openCost)
 	currentLumpId = lumpId
 
@@ -136,17 +328,17 @@ blindSold.OnClientEvent:Connect(function(amount)
 	hideLumpButtons()
 end)
 
-revealResult.OnClientEvent:Connect(function(itemName, tier, value)
+revealResult.OnClientEvent:Connect(function(itemId, tier, value, isNew, inventoryIndex)
 	hideLumpButtons()
 
-	statusLabel.TextColor3 = TIER_COLORS[tier] or Color3.fromRGB(255, 255, 255)
-	statusLabel.Text = itemName .. " — " .. string.upper(tier) .. " (" .. value .. " coins)"
+	currentInventoryIndex = inventoryIndex
+	local item = ItemTable[itemId]
 
-	task.delay(4, function()
-		if statusLabel.Text == itemName .. " — " .. string.upper(tier) .. " (" .. value .. " coins)" then
-			statusLabel.Text = ""
-		end
-	end)
+	revealNameLabel.TextColor3 = TIER_COLORS[tier] or Color3.fromRGB(255, 255, 255)
+	revealNameLabel.Text = item.name .. (isNew and "   [NEW]" or "")
+	revealDetailLabel.Text = string.upper(tier) .. " — " .. value .. " coins"
+
+	revealPanel.Visible = true
 end)
 
 openRefused.OnClientEvent:Connect(function(reason)
@@ -158,4 +350,8 @@ openRefused.OnClientEvent:Connect(function(reason)
 			statusLabel.Text = ""
 		end
 	end)
+end)
+
+catalogueUpdated.OnClientEvent:Connect(function(catalogueData, catalogueCount)
+	refreshCatalogue(catalogueData, catalogueCount)
 end)

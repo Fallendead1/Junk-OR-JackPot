@@ -1,7 +1,10 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local GradeTable = require(ReplicatedStorage.Modules.GradeTable)
 local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
+
+local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 
 -- Fixed iteration order for the cumulative tier roll (GradeTable's per-grade
 -- tables are plain tables — pairs() order isn't guaranteed).
@@ -44,7 +47,45 @@ function RevealService.PickItem(tier, zoneNumber)
 	return chosenId, ItemTable[chosenId]
 end
 
--- No setup needed — DigService calls into this module directly.
-function RevealService.Init() end
+local function sendCatalogue(player, profile)
+	ReplicatedStorage.Remotes.CatalogueUpdated:FireClient(player, profile.Data.catalogue, profile.Data.catalogueCount)
+end
+
+-- Writes the catalogue entry for a reveal. Data shape exactly per GDD §8.1:
+-- unfound items are simply absent from the table. Returns true if this is
+-- the player's first-ever find of this item.
+function RevealService.RecordCatalogue(player, profile, itemId, item)
+	local catalogue = profile.Data.catalogue
+	local entry = catalogue[itemId]
+	local isNew = entry == nil or entry.found ~= true
+
+	if isNew then
+		catalogue[itemId] = {
+			found = true,
+			count = 1,
+			bestValue = item.value,
+			firstFound = os.time(),
+		}
+		profile.Data.catalogueCount += 1
+	else
+		entry.count += 1
+		if item.value > entry.bestValue then
+			entry.bestValue = item.value
+		end
+	end
+
+	sendCatalogue(player, profile)
+
+	return isNew
+end
+
+function RevealService.Init()
+	PlayerDataService.ProfileLoaded.Event:Connect(function(player)
+		local profile = PlayerDataService.GetProfile(player)
+		if profile then
+			sendCatalogue(player, profile)
+		end
+	end)
+end
 
 return RevealService

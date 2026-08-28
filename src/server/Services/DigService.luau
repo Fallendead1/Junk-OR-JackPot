@@ -100,12 +100,34 @@ local function onRequestOpen(player, lumpId)
 
 	local tier = RevealService.RollTier(lump.grade)
 	local itemId, item = RevealService.PickItem(tier, lump.zone)
+	local isNew = RevealService.RecordCatalogue(player, profile, itemId, item)
 
-	-- Revealed items sell automatically for now — no inventory or keep/sell
-	-- choice exists until Phase 6.
-	EconomyService.AddCoins(player, item.value, "Reveal auto-sell: " .. item.name)
+	table.insert(profile.Data.inventory, {
+		itemId = itemId,
+		value = item.value,
+		rolledAt = os.time(),
+	})
+	local inventoryIndex = #profile.Data.inventory
 
-	ReplicatedStorage.Remotes.RevealResult:FireClient(player, item.name, tier, item.value)
+	-- Extends GDD §12.2's RevealResult(itemId, tier, value, isNew) with the
+	-- inventory index — the client needs it to fire RequestSellItem for the
+	-- KEEP/SELL prompt shown immediately after this reveal.
+	ReplicatedStorage.Remotes.RevealResult:FireClient(player, itemId, tier, item.value, isNew, inventoryIndex)
+end
+
+local function onRequestSellItem(player, inventoryIndex)
+	local profile = PlayerDataService.GetProfile(player)
+	if not profile then
+		return
+	end
+
+	local entry = profile.Data.inventory[inventoryIndex]
+	if not entry then
+		return -- invalid index (e.g. already sold, or made up) — silent no-op
+	end
+
+	table.remove(profile.Data.inventory, inventoryIndex)
+	EconomyService.AddCoins(player, entry.value, "Sold from inventory: " .. entry.itemId)
 end
 
 function DigService.Init()
@@ -118,6 +140,7 @@ function DigService.Init()
 	remotes.RequestDig.OnServerEvent:Connect(onRequestDig)
 	remotes.RequestSellBlind.OnServerEvent:Connect(onRequestSellBlind)
 	remotes.RequestOpen.OnServerEvent:Connect(onRequestOpen)
+	remotes.RequestSellItem.OnServerEvent:Connect(onRequestSellItem)
 
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterRemoving:Connect(function()
