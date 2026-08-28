@@ -24,14 +24,18 @@ local function recalculateLuck(profile)
 	profile.Data.luckBonus = math.min(luck, Config.LUCK_CAP)
 end
 
+function UpgradeService.GetLumpsPerDig(profile)
+	return ShovelTable[profile.Data.shovelTier].lumpsPerDig
+end
+
 local function onBuyShovel(player, profile, tier)
 	if tier ~= profile.Data.shovelTier + 1 then
-		return -- must buy the next tier, one at a time -- also blocks tier 4 from tier 1
+		return -- must buy the next tier, one at a time -- also blocks skipping tiers
 	end
 
 	local tierInfo = ShovelTable[tier]
 	if not tierInfo then
-		return -- doesn't exist yet (Powered/Excavator are Phase 11)
+		return -- no such tier
 	end
 
 	local paid = EconomyService.RemoveCoins(player, tierInfo.cost, "Bought " .. tierInfo.name .. " Shovel")
@@ -47,15 +51,15 @@ local function onBuyShovel(player, profile, tier)
 end
 
 local function onBuyZone(player, profile, zoneNumber)
-	if zoneNumber ~= 2 then
-		return -- only Zone 2 exists to unlock until Phase 11
+	local zone = ZoneTable[zoneNumber]
+	if not zone then
+		return -- no such zone
 	end
 
 	if profile.Data.zonesUnlocked[zoneNumber] then
 		return -- already unlocked
 	end
 
-	local zone = ZoneTable[zoneNumber]
 	local requirement = zone.requirement or {}
 
 	if requirement.catalogueEntries and profile.Data.catalogueCount < requirement.catalogueEntries then
@@ -122,11 +126,20 @@ end
 function UpgradeService.Init()
 	ReplicatedStorage.Remotes.RequestBuyUpgrade.OnServerEvent:Connect(onRequestBuyUpgrade)
 
-	-- Initial sync so the client can set up its own dig-prompt timings on join.
+	-- Initial sync so the client can set up its own dig-prompt timings and shop
+	-- display on join.
 	PlayerDataService.ProfileLoaded.Event:Connect(function(player)
 		local profile = PlayerDataService.GetProfile(player)
-		if profile then
-			ReplicatedStorage.Remotes.UpgradePurchased:FireClient(player, "shovel", profile.Data.shovelTier)
+		if not profile then
+			return
+		end
+
+		ReplicatedStorage.Remotes.UpgradePurchased:FireClient(player, "shovel", profile.Data.shovelTier)
+
+		for zoneNumber, unlocked in pairs(profile.Data.zonesUnlocked) do
+			if unlocked and zoneNumber > 1 then
+				ReplicatedStorage.Remotes.UpgradePurchased:FireClient(player, "zone", zoneNumber)
+			end
 		end
 	end)
 end

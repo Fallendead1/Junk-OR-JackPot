@@ -21,7 +21,7 @@ local lastDigTimeByPlayer = {}
 -- Each zone's dig region is anchored on its DigSpot part. "Region gating"
 -- here means: the server checks the player's actual position against this
 -- radius rather than trusting anything the client claims about where it is.
-local ZONE_DIG_SPOT_NAMES = { [1] = "DigSpot", [2] = "DigSpot2" }
+local ZONE_DIG_SPOT_NAMES = { [1] = "DigSpot", [2] = "DigSpot2", [3] = "DigSpot3", [4] = "DigSpot4", [5] = "DigSpot5" }
 local ZONE_REGION_RADIUS = 15
 
 local function getPlayerZone(player, profile)
@@ -32,7 +32,7 @@ local function getPlayerZone(player, profile)
 	end
 
 	-- Checked deepest-zone-first so overlapping regions favor the deeper zone.
-	for zoneNumber = 2, 1, -1 do
+	for zoneNumber = 5, 1, -1 do
 		if profile.Data.zonesUnlocked[zoneNumber] then
 			local digSpot = Workspace:FindFirstChild(ZONE_DIG_SPOT_NAMES[zoneNumber])
 			if digSpot and (rootPart.Position - digSpot.Position).Magnitude <= ZONE_REGION_RADIUS then
@@ -61,13 +61,14 @@ local function sendMyInventory(player, profile)
 end
 
 local function onRequestDig(player)
-	if LumpService.HasActiveLump(player) then
-		return -- already holding a lump
-	end
-
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return
+	end
+
+	local maxLumps = UpgradeService.GetLumpsPerDig(profile)
+	if LumpService.GetActiveLumpCount(player) >= maxLumps then
+		return -- already holding as many lumps as this shovel allows
 	end
 
 	local zoneNumber = getPlayerZone(player, profile)
@@ -83,28 +84,29 @@ local function onRequestDig(player)
 		return -- server-side cooldown not met; the client can't be trusted to have actually held the prompt
 	end
 
-	local lump = LumpService.CreateLump(player, zoneNumber)
-	if not lump then
-		return -- character not ready
-	end
-
 	lastDigTimeByPlayer[player] = os.clock()
 
-	local blindOffer = LumpService.GetBlindOffer(lump)
 	local effectiveOpenCost = getEffectiveOpenCost(profile, zone)
 
-	-- Hints, prices, and an opaque lump id only — the grade never leaves the server.
-	ReplicatedStorage.Remotes.LumpSpawned:FireClient(player, lump.lumpId, lump.hints, blindOffer, effectiveOpenCost)
+	-- Excavator (GDD §7.1) digs 2 lumps per action, each independently rolled.
+	for i = 1, maxLumps do
+		local lump = LumpService.CreateLump(player, zoneNumber, i - 1)
+		if lump then
+			local blindOffer = LumpService.GetBlindOffer(lump)
+			-- Hints, prices, and an opaque lump id only — the grade never leaves the server.
+			ReplicatedStorage.Remotes.LumpSpawned:FireClient(player, lump.lumpId, lump.hints, blindOffer, effectiveOpenCost)
+		end
+	end
 end
 
 local function onRequestSellBlind(player, lumpId)
-	local lump = LumpService.GetActiveLump(player)
-	if not lump or lump.lumpId ~= lumpId then
+	local lump = LumpService.GetActiveLump(player, lumpId)
+	if not lump then
 		return
 	end
 
 	local blindOffer = LumpService.GetBlindOffer(lump)
-	LumpService.ClearLump(player)
+	LumpService.ClearLump(player, lumpId)
 	EconomyService.AddCoins(player, blindOffer, "Blind sell (Zone " .. lump.zone .. ", hint score " .. lump.hintScore .. ")")
 	ReplicatedStorage.Remotes.BlindSold:FireClient(player, blindOffer)
 
@@ -114,8 +116,8 @@ local function onRequestSellBlind(player, lumpId)
 end
 
 local function onRequestOpen(player, lumpId)
-	local lump = LumpService.GetActiveLump(player)
-	if not lump or lump.lumpId ~= lumpId then
+	local lump = LumpService.GetActiveLump(player, lumpId)
+	if not lump then
 		return
 	end
 
@@ -140,7 +142,7 @@ local function onRequestOpen(player, lumpId)
 		profile.Data.freeOpensLeft -= 1
 	end
 
-	LumpService.ClearLump(player)
+	LumpService.ClearLump(player, lumpId)
 
 	local tier = RevealService.RollTier(lump.grade)
 	local itemId, item = RevealService.PickItem(tier, lump.zone)
@@ -196,12 +198,12 @@ function DigService.Init()
 
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterRemoving:Connect(function()
-			LumpService.ClearLump(player)
+			LumpService.ClearAllLumps(player)
 		end)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
-		LumpService.ClearLump(player)
+		LumpService.ClearAllLumps(player)
 		lastDigTimeByPlayer[player] = nil
 	end)
 

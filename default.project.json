@@ -160,6 +160,180 @@
             "RequiresLineOfSight": false
           }
         }
+      },
+      "TrashMound3": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": true,
+          "Locked": true,
+          "Material": "Rock",
+          "Color": [
+            0.5,
+            0.28,
+            0.22
+          ],
+          "Position": [
+            120,
+            4,
+            -10
+          ],
+          "Size": [
+            20,
+            8,
+            20
+          ]
+        }
+      },
+      "DigSpot3": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": false,
+          "Locked": true,
+          "Material": "Neon",
+          "Color": [
+            1,
+            0.4,
+            0.1
+          ],
+          "Position": [
+            120,
+            8.5,
+            -10
+          ],
+          "Size": [
+            3,
+            1,
+            3
+          ]
+        },
+        "ProximityPrompt": {
+          "$className": "ProximityPrompt",
+          "$properties": {
+            "ActionText": "Dig",
+            "ObjectText": "The Wreck",
+            "HoldDuration": 4,
+            "MaxActivationDistance": 10,
+            "RequiresLineOfSight": false
+          }
+        }
+      },
+      "TrashMound4": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": true,
+          "Locked": true,
+          "Material": "Rock",
+          "Color": [
+            0.55,
+            0.55,
+            0.58
+          ],
+          "Position": [
+            180,
+            4,
+            -10
+          ],
+          "Size": [
+            20,
+            8,
+            20
+          ]
+        }
+      },
+      "DigSpot4": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": false,
+          "Locked": true,
+          "Material": "Neon",
+          "Color": [
+            0.85,
+            0.85,
+            0.9
+          ],
+          "Position": [
+            180,
+            8.5,
+            -10
+          ],
+          "Size": [
+            3,
+            1,
+            3
+          ]
+        },
+        "ProximityPrompt": {
+          "$className": "ProximityPrompt",
+          "$properties": {
+            "ActionText": "Dig",
+            "ObjectText": "The Vault",
+            "HoldDuration": 4.5,
+            "MaxActivationDistance": 10,
+            "RequiresLineOfSight": false
+          }
+        }
+      },
+      "TrashMound5": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": true,
+          "Locked": true,
+          "Material": "Basalt",
+          "Color": [
+            0.15,
+            0.13,
+            0.13
+          ],
+          "Position": [
+            240,
+            4,
+            -10
+          ],
+          "Size": [
+            20,
+            8,
+            20
+          ]
+        }
+      },
+      "DigSpot5": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "CanCollide": false,
+          "Locked": true,
+          "Material": "Neon",
+          "Color": [
+            1,
+            0.25,
+            0.05
+          ],
+          "Position": [
+            240,
+            8.5,
+            -10
+          ],
+          "Size": [
+            3,
+            1,
+            3
+          ]
+        },
+        "ProximityPrompt": {
+          "$className": "ProximityPrompt",
+          "$properties": {
+            "ActionText": "Dig",
+            "ObjectText": "The Crater",
+            "HoldDuration": 5,
+            "MaxActivationDistance": 10,
+            "RequiresLineOfSight": false
+          }
+        }
       }
     },
     "Lighting": {

@@ -31,6 +31,9 @@ local myShelfUpdated = remotes:WaitForChild("MyShelfUpdated")
 local ZONE_DIG_SPOTS = {
 	[1] = Workspace:WaitForChild("DigSpot"),
 	[2] = Workspace:WaitForChild("DigSpot2"),
+	[3] = Workspace:WaitForChild("DigSpot3"),
+	[4] = Workspace:WaitForChild("DigSpot4"),
+	[5] = Workspace:WaitForChild("DigSpot5"),
 }
 
 local TIER_COLORS = require(ReplicatedStorage.Modules.TierColors)
@@ -137,6 +140,7 @@ local currentInventoryIndex = nil
 local currentShovelTier = 1
 local currentCatalogueCount = 0
 local currentShelfSlots = 12
+local myZonesUnlocked = { [1] = true }
 
 -- Catalogue button + grid
 local catalogueButton = Instance.new("TextButton")
@@ -247,6 +251,11 @@ local function refreshCatalogue(catalogueData, catalogueCount)
 end
 
 refreshCatalogue({}, 0)
+
+-- Normal shovels only ever hold one lump, but the Excavator digs 2 at once
+-- (GDD §7.1). Only one lump is ever shown/decided at a time through the
+-- existing SELL BLIND / OPEN buttons; the rest wait here.
+local pendingLumps = {}
 
 local function hideLumpButtons()
 	currentLumpId = nil
@@ -409,15 +418,26 @@ buyShovelButton.Activated:Connect(function()
 	requestBuyUpgrade:FireServer("shovel", currentShovelTier + 1)
 end)
 
+local function getNextLockedZone()
+	for zoneNumber = 2, 5 do
+		if not myZonesUnlocked[zoneNumber] then
+			return zoneNumber
+		end
+	end
+	return nil
+end
+
 buyZoneButton.Activated:Connect(function()
-	requestBuyUpgrade:FireServer("zone", 2)
+	local nextZone = getNextLockedZone()
+	if nextZone then
+		requestBuyUpgrade:FireServer("zone", nextZone)
+	end
 end)
 
 buyShelfSlotButton.Activated:Connect(function()
 	requestBuyUpgrade:FireServer("shelfSlot", currentShelfSlots + 1)
 end)
 
-local ZONE_2_REQUIREMENT = ZoneTable[2].requirement
 local SHELF_BASE_SLOTS = 12
 
 -- GDD §7.3: matches UpgradeService's server-side formula exactly (this is
@@ -440,8 +460,25 @@ local function refreshShopUI()
 		buyShovelButton.Visible = false
 	end
 
-	zoneLabel.Text = "The Quarry: " .. ZoneTable[2].unlockCost .. " coins + "
-		.. ZONE_2_REQUIREMENT.catalogueEntries .. " catalogue entries (you have " .. currentCatalogueCount .. ")"
+	local nextZone = getNextLockedZone()
+	if nextZone then
+		local zone = ZoneTable[nextZone]
+		local requirement = zone.requirement or {}
+		local requirementText = ""
+		if requirement.catalogueEntries then
+			requirementText = requirementText .. " + " .. requirement.catalogueEntries .. " catalogue entries (you have " .. currentCatalogueCount .. ")"
+		end
+		if requirement.shovelTier then
+			requirementText = requirementText .. " + " .. ShovelTable[requirement.shovelTier].name .. " Shovel"
+		end
+
+		zoneLabel.Text = zone.name .. ": " .. zone.unlockCost .. " coins" .. requirementText
+		buyZoneButton.Text = "UNLOCK " .. string.upper(zone.name)
+		buyZoneButton.Visible = true
+	else
+		zoneLabel.Text = "All zones unlocked!"
+		buyZoneButton.Visible = false
+	end
 
 	local cost = nextShelfSlotCost()
 	shelfLabel.Text = "Shelf slots: " .. currentShelfSlots .. "\nNext slot (" .. (currentShelfSlots + 1) .. "): " .. cost .. " coins"
@@ -450,24 +487,44 @@ end
 
 refreshShopUI()
 
-lumpSpawned.OnClientEvent:Connect(function(lumpId, hints, blindOffer, openCost)
-	currentLumpId = lumpId
+local function showLump(lumpData)
+	currentLumpId = lumpData.lumpId
 
-	sellButton.Text = "SELL BLIND — " .. blindOffer
+	sellButton.Text = "SELL BLIND — " .. lumpData.blindOffer
 	sellButton.Visible = true
 
-	openButton.Text = openCost <= 0 and "OPEN — FREE" or ("OPEN — " .. openCost)
+	openButton.Text = lumpData.openCost <= 0 and "OPEN — FREE" or ("OPEN — " .. lumpData.openCost)
 	openButton.Visible = true
 
-	showHints(lumpId, hints)
+	showHints(lumpData.lumpId, lumpData.hints)
+end
+
+local function showNextPendingLump()
+	local nextLump = table.remove(pendingLumps, 1)
+	if nextLump then
+		showLump(nextLump)
+	else
+		hideLumpButtons()
+	end
+end
+
+lumpSpawned.OnClientEvent:Connect(function(lumpId, hints, blindOffer, openCost)
+	local lumpData = { lumpId = lumpId, hints = hints, blindOffer = blindOffer, openCost = openCost }
+
+	if currentLumpId == nil then
+		showLump(lumpData)
+	else
+		-- Excavator's second lump of the dig waits its turn.
+		table.insert(pendingLumps, lumpData)
+	end
 end)
 
 blindSold.OnClientEvent:Connect(function(amount)
-	hideLumpButtons()
+	showNextPendingLump()
 end)
 
 revealResult.OnClientEvent:Connect(function(itemId, tier, value, isNew, inventoryIndex)
-	hideLumpButtons()
+	showNextPendingLump()
 
 	currentInventoryIndex = inventoryIndex
 	local item = ItemTable[itemId]
@@ -512,6 +569,9 @@ upgradePurchased.OnClientEvent:Connect(function(upgradeType, tier)
 			end
 		end
 	elseif upgradeType == "zone" then
+		myZonesUnlocked[tier] = true
+		refreshShopUI()
+
 		statusLabel.TextColor3 = Color3.fromRGB(80, 220, 120)
 		statusLabel.Text = "Unlocked " .. ZoneTable[tier].name .. "!"
 		task.delay(3, function()
