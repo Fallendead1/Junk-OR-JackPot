@@ -12,6 +12,7 @@ local RevealService = require(ServerScriptService.Services.RevealService)
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local UpgradeService = require(ServerScriptService.Services.UpgradeService)
 local AnnounceService = require(ServerScriptService.Services.AnnounceService)
+local BinService = require(ServerScriptService.Services.BinService)
 
 local DigService = {}
 
@@ -102,6 +103,10 @@ local function onRequestSellBlind(player, lumpId)
 	LumpService.ClearLump(player)
 	EconomyService.AddCoins(player, blindOffer, "Blind sell (Zone " .. lump.zone .. ", hint score " .. lump.hintScore .. ")")
 	ReplicatedStorage.Remotes.BlindSold:FireClient(player, blindOffer)
+
+	-- The lump isn't destroyed by the sale (GDD §8.3) -- it lives on in the
+	-- bin for another player to buy at 2x.
+	BinService.PushLump(player, lump, blindOffer)
 end
 
 local function onRequestOpen(player, lumpId)

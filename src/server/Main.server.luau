@@ -19,6 +19,8 @@ local REMOTE_EVENT_NAMES = {
 	"UpgradePurchased",
 	"UpgradeRefused",
 	"Announce",
+	"RequestBuyBin",
+	"BinUpdated",
 }
 
 local remotesFolder = Instance.new("Folder")
@@ -39,6 +41,7 @@ local SERVICE_INIT_ORDER = {
 	"RevealService",
 	"UpgradeService",
 	"AnnounceService",
+	"BinService",
 	"DigService",
 }
 
