@@ -11,6 +11,7 @@ local EconomyService = require(ServerScriptService.Services.EconomyService)
 local RevealService = require(ServerScriptService.Services.RevealService)
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local UpgradeService = require(ServerScriptService.Services.UpgradeService)
+local AnnounceService = require(ServerScriptService.Services.AnnounceService)
 
 local DigService = {}
 
@@ -142,6 +143,8 @@ local function onRequestOpen(player, lumpId)
 		rolledAt = os.time(),
 	})
 	local inventoryIndex = #profile.Data.inventory
+
+	AnnounceService.Announce(player, tier, item.name, item.value, zone.name)
 
 	-- Extends GDD §12.2's RevealResult(itemId, tier, value, isNew) with the
 	-- inventory index — the client needs it to fire RequestSellItem for the
