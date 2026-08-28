@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
+local BucketEV = require(ReplicatedStorage.Modules.BucketEV)
 local Config = require(ReplicatedStorage.Modules.Config)
 local GradeTable = require(ReplicatedStorage.Modules.GradeTable)
 local HintTable = require(ReplicatedStorage.Modules.HintTable)
@@ -16,6 +17,9 @@ local GRADE_ORDER = { "Dud", "Plain", "Promising", "Charged" }
 local HINT_LEVEL_ORDER = { "Low", "Mid", "High" }
 local HINT_LEVEL_SCORE = { Low = 0, Mid = 1, High = 2 }
 local HINT_TYPES = { "Weight", "Temperature", "Sheen" }
+
+-- GDD §5.3
+local BUCKET_BY_HINT_SCORE = { [0] = "LOW", [1] = "LOW", [2] = "MID", [3] = "MID", [4] = "MID", [5] = "HIGH", [6] = "HIGH" }
 
 local LUMP_SIZE = Vector3.new(1.5, 1.5, 1.5)
 local LUMP_COLOR = Color3.fromRGB(120, 120, 120)
@@ -76,6 +80,14 @@ function LumpService.GenerateHints(grade)
 	end
 
 	return hints, hintScore
+end
+
+-- GDD §5.3: blindPrice = round(BLIND_RATIO * BucketEV[zone][bucket]). Pure
+-- function of the lump's own zone/hintScore — no player/profile lookup.
+function LumpService.GetBlindOffer(lump)
+	local bucket = BUCKET_BY_HINT_SCORE[lump.hintScore]
+	local bucketEV = BucketEV[lump.zone][bucket]
+	return math.round(Config.BLIND_RATIO * bucketEV)
 end
 
 function LumpService.HasActiveLump(player)

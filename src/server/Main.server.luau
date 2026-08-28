@@ -9,6 +9,9 @@ local REMOTE_EVENT_NAMES = {
 	"LumpSpawned",
 	"RequestSellBlind",
 	"BlindSold",
+	"RequestOpen",
+	"RevealResult",
+	"OpenRefused",
 	"CoinsChanged",
 }
 
@@ -27,6 +30,7 @@ local SERVICE_INIT_ORDER = {
 	"PlayerDataService",
 	"EconomyService",
 	"LumpService",
+	"RevealService",
 	"DigService",
 }
 
