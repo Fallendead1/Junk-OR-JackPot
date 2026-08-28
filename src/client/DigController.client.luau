@@ -5,6 +5,7 @@ local Workspace = game:GetService("Workspace")
 local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
 local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 local ShovelTable = require(ReplicatedStorage.Modules.ShovelTable)
+local Config = require(ReplicatedStorage.Modules.Config)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -22,6 +23,7 @@ local openRefused = remotes:WaitForChild("OpenRefused")
 local catalogueUpdated = remotes:WaitForChild("CatalogueUpdated")
 local upgradePurchased = remotes:WaitForChild("UpgradePurchased")
 local upgradeRefused = remotes:WaitForChild("UpgradeRefused")
+local myShelfUpdated = remotes:WaitForChild("MyShelfUpdated")
 
 -- Each zone has its own physical dig spot + prompt. The prompt's HoldDuration
 -- starts at the zone's base (Rusty shovel) time; onUpgradePurchased below
@@ -31,16 +33,7 @@ local ZONE_DIG_SPOTS = {
 	[2] = Workspace:WaitForChild("DigSpot2"),
 }
 
--- Display-only. Source: GDD §4.3.
-local TIER_COLORS = {
-	Scrap = Color3.fromHex("#6B6B6B"),
-	Common = Color3.fromHex("#FFFFFF"),
-	Good = Color3.fromHex("#4EC94E"),
-	Rare = Color3.fromHex("#3B82F6"),
-	Epic = Color3.fromHex("#A855F7"),
-	Mythic = Color3.fromHex("#F59E0B"),
-	Relic = Color3.fromHex("#EF4444"),
-}
+local TIER_COLORS = require(ReplicatedStorage.Modules.TierColors)
 
 -- Stable display order for the 60 catalogue slots (ItemTable's pairs() order
 -- isn't guaranteed).
@@ -143,6 +136,7 @@ sellItemButton.Parent = revealPanel
 local currentInventoryIndex = nil
 local currentShovelTier = 1
 local currentCatalogueCount = 0
+local currentShelfSlots = 12
 
 -- Catalogue button + grid
 local catalogueButton = Instance.new("TextButton")
@@ -340,7 +334,7 @@ shopButton.Parent = screenGui
 
 local shopFrame = Instance.new("Frame")
 shopFrame.Name = "ShopFrame"
-shopFrame.Size = UDim2.fromOffset(360, 260)
+shopFrame.Size = UDim2.fromOffset(360, 330)
 shopFrame.Position = UDim2.new(0, 20, 0, 120)
 shopFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 shopFrame.Visible = false
@@ -387,6 +381,26 @@ buyZoneButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 buyZoneButton.TextScaled = true
 buyZoneButton.Parent = shopFrame
 
+local shelfLabel = Instance.new("TextLabel")
+shelfLabel.Name = "ShelfLabel"
+shelfLabel.Size = UDim2.new(1, -20, 0, 50)
+shelfLabel.Position = UDim2.new(0, 10, 0, 250)
+shelfLabel.BackgroundTransparency = 1
+shelfLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+shelfLabel.TextWrapped = true
+shelfLabel.TextScaled = true
+shelfLabel.Font = Enum.Font.Gotham
+shelfLabel.Parent = shopFrame
+
+local buyShelfSlotButton = Instance.new("TextButton")
+buyShelfSlotButton.Name = "BuyShelfSlotButton"
+buyShelfSlotButton.Size = UDim2.new(1, -20, 0, 40)
+buyShelfSlotButton.Position = UDim2.new(0, 10, 0, 285)
+buyShelfSlotButton.BackgroundColor3 = Color3.fromRGB(140, 100, 40)
+buyShelfSlotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+buyShelfSlotButton.TextScaled = true
+buyShelfSlotButton.Parent = shopFrame
+
 shopButton.Activated:Connect(function()
 	shopFrame.Visible = not shopFrame.Visible
 end)
@@ -399,7 +413,19 @@ buyZoneButton.Activated:Connect(function()
 	requestBuyUpgrade:FireServer("zone", 2)
 end)
 
+buyShelfSlotButton.Activated:Connect(function()
+	requestBuyUpgrade:FireServer("shelfSlot", currentShelfSlots + 1)
+end)
+
 local ZONE_2_REQUIREMENT = ZoneTable[2].requirement
+local SHELF_BASE_SLOTS = 12
+
+-- GDD §7.3: matches UpgradeService's server-side formula exactly (this is
+-- display-only; the server is what actually validates and charges).
+local function nextShelfSlotCost()
+	local n = (currentShelfSlots + 1) - SHELF_BASE_SLOTS
+	return math.round(Config.SHELF_BASE_COST * Config.SHELF_COST_MULT ^ n)
+end
 
 local function refreshShopUI()
 	local currentShovel = ShovelTable[currentShovelTier]
@@ -416,6 +442,10 @@ local function refreshShopUI()
 
 	zoneLabel.Text = "The Quarry: " .. ZoneTable[2].unlockCost .. " coins + "
 		.. ZONE_2_REQUIREMENT.catalogueEntries .. " catalogue entries (you have " .. currentCatalogueCount .. ")"
+
+	local cost = nextShelfSlotCost()
+	shelfLabel.Text = "Shelf slots: " .. currentShelfSlots .. "\nNext slot (" .. (currentShelfSlots + 1) .. "): " .. cost .. " coins"
+	buyShelfSlotButton.Text = "BUY SLOT " .. (currentShelfSlots + 1) .. " — " .. cost
 end
 
 refreshShopUI()
@@ -487,7 +517,14 @@ upgradePurchased.OnClientEvent:Connect(function(upgradeType, tier)
 		task.delay(3, function()
 			statusLabel.Text = ""
 		end)
+	elseif upgradeType == "shelfSlot" then
+		refreshShopUI() -- currentShelfSlots itself updates via MyShelfUpdated below
 	end
+end)
+
+myShelfUpdated.OnClientEvent:Connect(function(shelf, shelfSlots)
+	currentShelfSlots = shelfSlots
+	refreshShopUI()
 end)
 
 upgradeRefused.OnClientEvent:Connect(function(reason)

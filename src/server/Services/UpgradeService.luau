@@ -7,6 +7,9 @@ local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local EconomyService = require(ServerScriptService.Services.EconomyService)
+local ShelfService = require(ServerScriptService.Services.ShelfService)
+
+local SHELF_BASE_SLOTS = 12
 
 local UpgradeService = {}
 
@@ -75,6 +78,32 @@ local function onBuyZone(player, profile, zoneNumber)
 	ReplicatedStorage.Remotes.UpgradePurchased:FireClient(player, "zone", zoneNumber)
 end
 
+-- GDD §7.3: slotCost = round(SHELF_BASE_COST * SHELF_COST_MULT ^ n), where n
+-- counts slots bought beyond the free base 12 (slot 13 is n=1, 14 is n=2...).
+-- Verified against the GDD's own worked examples: n=1 -> 1700, n=6 -> 24138,
+-- n=10 -> 201599, all matching exactly.
+local function onBuyShelfSlot(player, profile, slotNumber)
+	if slotNumber ~= profile.Data.shelfSlots + 1 then
+		return -- must buy the next slot, one at a time
+	end
+
+	local n = slotNumber - SHELF_BASE_SLOTS
+	if n < 1 then
+		return -- slots 1-12 are already free
+	end
+
+	local cost = math.round(Config.SHELF_BASE_COST * Config.SHELF_COST_MULT ^ n)
+	local paid = EconomyService.RemoveCoins(player, cost, "Bought shelf slot " .. slotNumber)
+	if not paid then
+		ReplicatedStorage.Remotes.UpgradeRefused:FireClient(player, "Not enough coins")
+		return
+	end
+
+	profile.Data.shelfSlots = slotNumber
+	ShelfService.NotifyShelfSlotsChanged(player, profile)
+	ReplicatedStorage.Remotes.UpgradePurchased:FireClient(player, "shelfSlot", slotNumber)
+end
+
 local function onRequestBuyUpgrade(player, upgradeType, tier)
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
@@ -85,6 +114,8 @@ local function onRequestBuyUpgrade(player, upgradeType, tier)
 		onBuyShovel(player, profile, tier)
 	elseif upgradeType == "zone" then
 		onBuyZone(player, profile, tier)
+	elseif upgradeType == "shelfSlot" then
+		onBuyShelfSlot(player, profile, tier)
 	end
 end
 

@@ -56,6 +56,10 @@ local function getEffectiveOpenCost(profile, zone)
 	return zone.openCost * profile.Data.coinMultiplier
 end
 
+local function sendMyInventory(player, profile)
+	ReplicatedStorage.Remotes.MyInventoryUpdated:FireClient(player, profile.Data.inventory)
+end
+
 local function onRequestDig(player)
 	if LumpService.HasActiveLump(player) then
 		return -- already holding a lump
@@ -148,6 +152,7 @@ local function onRequestOpen(player, lumpId)
 		rolledAt = os.time(),
 	})
 	local inventoryIndex = #profile.Data.inventory
+	sendMyInventory(player, profile)
 
 	AnnounceService.Announce(player, tier, item.name, item.value, zone.name)
 
@@ -170,6 +175,7 @@ local function onRequestSellItem(player, inventoryIndex)
 
 	table.remove(profile.Data.inventory, inventoryIndex)
 	EconomyService.AddCoins(player, entry.value, "Sold from inventory: " .. entry.itemId)
+	sendMyInventory(player, profile)
 end
 
 function DigService.Init()
@@ -197,6 +203,13 @@ function DigService.Init()
 	Players.PlayerRemoving:Connect(function(player)
 		LumpService.ClearLump(player)
 		lastDigTimeByPlayer[player] = nil
+	end)
+
+	PlayerDataService.ProfileLoaded.Event:Connect(function(player)
+		local profile = PlayerDataService.GetProfile(player)
+		if profile then
+			sendMyInventory(player, profile)
+		end
 	end)
 end
 

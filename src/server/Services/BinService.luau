@@ -114,6 +114,7 @@ local function onRequestBuyBin(player, binEntryId)
 		rolledAt = os.time(),
 	})
 	local inventoryIndex = #buyerProfile.Data.inventory
+	ReplicatedStorage.Remotes.MyInventoryUpdated:FireClient(player, buyerProfile.Data.inventory)
 
 	ReplicatedStorage.Remotes.RevealResult:FireClient(player, itemId, tier, item.value, isNew, inventoryIndex)
 
