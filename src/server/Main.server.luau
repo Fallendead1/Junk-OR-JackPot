@@ -7,8 +7,9 @@ local Services = ServerScriptService.Services
 local REMOTE_EVENT_NAMES = {
 	"RequestDig",
 	"LumpSpawned",
-	"RequestDestroyLump", -- TEMPORARY: replaced by RequestSellBlind in Phase 3
-	"LumpCleared", -- TEMPORARY: replaced by BlindSold in Phase 3
+	"RequestSellBlind",
+	"BlindSold",
+	"CoinsChanged",
 }
 
 local remotesFolder = Instance.new("Folder")
@@ -24,6 +25,7 @@ end
 -- Add service names here, in the exact order they must initialise.
 local SERVICE_INIT_ORDER = {
 	"PlayerDataService",
+	"EconomyService",
 	"DigService",
 }
 

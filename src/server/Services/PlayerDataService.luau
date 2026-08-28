@@ -67,6 +67,13 @@ local playerStore = ProfileStore.New("PlayerData", ProfileTemplate)
 
 local PlayerDataService = {}
 
+-- Fires (player) once a profile has finished loading and is safe to read/write
+-- via GetProfile(player). Other services use this instead of duplicating
+-- join/load logic. (Fires just the player, not the profile itself — the
+-- Profile object has internal cyclic references that BindableEvent:Fire()
+-- can't marshal.)
+PlayerDataService.ProfileLoaded = Instance.new("BindableEvent")
+
 local profiles = {}
 
 local function onPlayerAdded(player)
@@ -102,6 +109,7 @@ local function onPlayerAdded(player)
 
 	profiles[player] = profile
 	print("[PlayerDataService] Loaded profile for " .. player.Name)
+	PlayerDataService.ProfileLoaded:Fire(player)
 end
 
 local function onPlayerRemoving(player)
@@ -118,20 +126,6 @@ end
 -- the profile hasn't loaded yet or the player has left.
 function PlayerDataService.GetProfile(player)
 	return profiles[player]
-end
-
--- TEMPORARY: lets you set a player's coins from the command bar to test
--- persistence, e.g.:
---   require(game.ServerScriptService.Services.PlayerDataService).SetCoins(game.Players.SomeUser, 500)
--- Removed once EconomyService (Phase 3) is the only thing that touches coins.
-function PlayerDataService.SetCoins(player, amount)
-	local profile = profiles[player]
-	if profile == nil then
-		warn("[PlayerDataService] (debug) No active profile for " .. tostring(player))
-		return
-	end
-	profile.Data.coins = amount
-	print("[PlayerDataService] (debug) Set " .. player.Name .. "'s coins to " .. amount)
 end
 
 function PlayerDataService.Init()

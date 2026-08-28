@@ -5,8 +5,14 @@ local Workspace = game:GetService("Workspace")
 local Config = require(ReplicatedStorage.Modules.Config)
 local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 
+local ServerScriptService = game:GetService("ServerScriptService")
+local EconomyService = require(ServerScriptService.Services.EconomyService)
+
 local LUMP_SIZE = Vector3.new(1.5, 1.5, 1.5)
 local LUMP_COLOR = Color3.fromRGB(120, 120, 120)
+
+-- TEMPORARY flat rate. Replaced by the real BucketEV-based blind price in Phase 5.
+local TEMP_BLIND_SELL_AMOUNT = 40
 
 local DigService = {}
 
@@ -65,13 +71,14 @@ local function onRequestDig(player)
 	ReplicatedStorage.Remotes.LumpSpawned:FireClient(player)
 end
 
-local function onRequestDestroyLump(player)
+local function onRequestSellBlind(player)
 	if not activeLumpByPlayer[player] then
 		return
 	end
 
 	clearLump(player)
-	ReplicatedStorage.Remotes.LumpCleared:FireClient(player)
+	EconomyService.AddCoins(player, TEMP_BLIND_SELL_AMOUNT, "Blind sell (Zone 1, temp flat rate)")
+	ReplicatedStorage.Remotes.BlindSold:FireClient(player, TEMP_BLIND_SELL_AMOUNT)
 end
 
 function DigService.Init()
@@ -82,7 +89,7 @@ function DigService.Init()
 
 	local remotes = ReplicatedStorage.Remotes
 	remotes.RequestDig.OnServerEvent:Connect(onRequestDig)
-	remotes.RequestDestroyLump.OnServerEvent:Connect(onRequestDestroyLump)
+	remotes.RequestSellBlind.OnServerEvent:Connect(onRequestSellBlind)
 
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterRemoving:Connect(function()
