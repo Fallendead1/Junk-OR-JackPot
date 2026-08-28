@@ -43,8 +43,35 @@ sellButton.Activated:Connect(function()
 	requestSellBlind:FireServer()
 end)
 
-lumpSpawned.OnClientEvent:Connect(function()
+-- Three noisy readings, e.g. "SOLID · COLD · DULL" — this is all the client
+-- ever sees about a lump. What produced them stays server-side.
+local function showHints(lumpId, hints)
+	local lumpPart = Workspace:WaitForChild("Lump_" .. lumpId, 5)
+	if not lumpPart then
+		return
+	end
+
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "HintDisplay"
+	billboard.Size = UDim2.fromOffset(220, 50)
+	billboard.StudsOffset = Vector3.new(0, 2, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = lumpPart
+
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.GothamBold
+	label.TextColor3 = Color3.fromRGB(255, 255, 255)
+	label.TextScaled = true
+	label.TextStrokeTransparency = 0.5
+	label.Text = string.upper(hints.Weight) .. " · " .. string.upper(hints.Temperature) .. " · " .. string.upper(hints.Sheen)
+	label.Parent = billboard
+end
+
+lumpSpawned.OnClientEvent:Connect(function(lumpId, hints)
 	sellButton.Visible = true
+	showHints(lumpId, hints)
 end)
 
 blindSold.OnClientEvent:Connect(function()

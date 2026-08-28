@@ -26,6 +26,7 @@ end
 local SERVICE_INIT_ORDER = {
 	"PlayerDataService",
 	"EconomyService",
+	"LumpService",
 	"DigService",
 }
 
