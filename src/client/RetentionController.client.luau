@@ -1,6 +1,8 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local UIJuice = require(ReplicatedStorage.Modules.UIJuice)
+
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
@@ -34,6 +36,9 @@ leaderboardButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
 leaderboardButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 leaderboardButton.TextScaled = true
 leaderboardButton.Parent = screenGui
+
+UIJuice.MakeButtonJuicy(dailyButton)
+UIJuice.MakeButtonJuicy(leaderboardButton)
 
 local leaderboardFrame = Instance.new("Frame")
 leaderboardFrame.Name = "LeaderboardFrame"
@@ -73,6 +78,7 @@ end)
 leaderboardButton.Activated:Connect(function()
 	leaderboardFrame.Visible = not leaderboardFrame.Visible
 	if leaderboardFrame.Visible then
+		UIJuice.PopIn(leaderboardFrame)
 		requestLeaderboard:FireServer()
 	end
 end)

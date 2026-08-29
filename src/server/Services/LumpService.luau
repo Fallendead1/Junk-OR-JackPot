@@ -17,9 +17,18 @@ local GRADE_ORDER = { "Dud", "Plain", "Promising", "Charged" }
 local HINT_LEVEL_ORDER = { "Low", "Mid", "High" }
 local HINT_LEVEL_SCORE = { Low = 0, Mid = 1, High = 2 }
 local HINT_TYPES = { "Weight", "Temperature", "Sheen" }
+-- GDD §10.1: the Scanner gamepass adds a 4th independent hint draw.
+local HINT_TYPES_WITH_SCANNER = { "Weight", "Temperature", "Sheen", "Texture" }
 
--- GDD §5.3
-local BUCKET_BY_HINT_SCORE = { [0] = "LOW", [1] = "LOW", [2] = "MID", [3] = "MID", [4] = "MID", [5] = "HIGH", [6] = "HIGH" }
+-- GDD §5.3. Scanner extends the hint score range from 0-6 to 0-8, and the
+-- bucket boundaries shift accordingly (GDD §10.1) -- a lump's bucket table
+-- depends on how many hints it actually has, tracked via lump.hasScanner.
+local BUCKET_BY_HINT_SCORE_3 = { [0] = "LOW", [1] = "LOW", [2] = "MID", [3] = "MID", [4] = "MID", [5] = "HIGH", [6] = "HIGH" }
+local BUCKET_BY_HINT_SCORE_4 = {
+	[0] = "LOW", [1] = "LOW", [2] = "LOW",
+	[3] = "MID", [4] = "MID", [5] = "MID",
+	[6] = "HIGH", [7] = "HIGH", [8] = "HIGH",
+}
 
 local LUMP_SIZE = Vector3.new(1.5, 1.5, 1.5)
 local LUMP_COLOR = Color3.fromRGB(120, 120, 120)
@@ -68,14 +77,16 @@ function LumpService.RollGrade(player, zoneNumber)
 	return LumpService.RollGradeWithLuck(zoneNumber, luck)
 end
 
--- Also pure — three independent Low/Mid/High draws from the grade's row in
--- HintTable, mapped to display words. Returns the hints and their sum (0-6).
-function LumpService.GenerateHints(grade)
+-- Also pure — three (or four, with Scanner) independent Low/Mid/High draws
+-- from the grade's row in HintTable, mapped to display words. Returns the
+-- hints and their sum (0-6, or 0-8 with Scanner).
+function LumpService.GenerateHints(grade, hasScanner)
 	local distribution = HintTable[grade]
+	local hintTypes = hasScanner and HINT_TYPES_WITH_SCANNER or HINT_TYPES
 	local hints = {}
 	local hintScore = 0
 
-	for _, hintType in ipairs(HINT_TYPES) do
+	for _, hintType in ipairs(hintTypes) do
 		local level = rollFromCumulative(math.random(), HINT_LEVEL_ORDER, distribution, 1)
 		hints[hintType] = HintTable.Labels[hintType][level]
 		hintScore += HINT_LEVEL_SCORE[level]
@@ -85,9 +96,10 @@ function LumpService.GenerateHints(grade)
 end
 
 -- GDD §5.3: blindPrice = round(BLIND_RATIO * BucketEV[zone][bucket]). Pure
--- function of the lump's own zone/hintScore — no player/profile lookup.
+-- function of the lump's own zone/hintScore/hasScanner — no player/profile lookup.
 function LumpService.GetBlindOffer(lump)
-	local bucket = BUCKET_BY_HINT_SCORE[lump.hintScore]
+	local bucketTable = lump.hasScanner and BUCKET_BY_HINT_SCORE_4 or BUCKET_BY_HINT_SCORE_3
+	local bucket = bucketTable[lump.hintScore]
 	local bucketEV = BucketEV[lump.zone][bucket]
 	return math.round(Config.BLIND_RATIO * bucketEV)
 end
@@ -114,7 +126,7 @@ end
 -- to the player's hand and registers it. Returns nil if the character isn't
 -- ready. handOffset nudges the second lump in an Excavator's double-dig so
 -- the two don't render on top of each other.
-local function spawnLump(player, zoneNumber, grade, hints, hintScore, isGolden, handOffset)
+local function spawnLump(player, zoneNumber, grade, hints, hintScore, isGolden, handOffset, hasScanner)
 	local character = player.Character
 	local handPart = character and getHandAttachPart(character)
 	if not handPart then
@@ -148,6 +160,7 @@ local function spawnLump(player, zoneNumber, grade, hints, hintScore, isGolden, 
 		hints = hints,
 		hintScore = hintScore,
 		isGolden = isGolden,
+		hasScanner = hasScanner or false,
 		part = part,
 	}
 
@@ -160,19 +173,29 @@ end
 -- Rolls a grade, generates its hints, and spawns the physical lump welded to
 -- the player's hand.
 function LumpService.CreateLump(player, zoneNumber, handOffset)
+	local profile = PlayerDataService.GetProfile(player)
+	local hasScanner = profile ~= nil and profile.Data.passes.scanner
+
 	local grade = LumpService.RollGrade(player, zoneNumber)
-	local hints, hintScore = LumpService.GenerateHints(grade)
-	return spawnLump(player, zoneNumber, grade, hints, hintScore, false, handOffset)
+	local hints, hintScore = LumpService.GenerateHints(grade, hasScanner)
+	return spawnLump(player, zoneNumber, grade, hints, hintScore, false, handOffset, hasScanner)
 end
 
 -- GDD §9.2: the Daily Golden Lump is always Charged, and its hints are always
 -- forced all-High -- the player is meant to know it's special, not have to
 -- read it. The actual reroll-until-Rare-or-better guarantee happens at open
 -- time (DailyService.RollGoldenTier), not here.
-local GOLDEN_HINTS = { Weight = "Heavy", Temperature = "Hot", Sheen = "Shimmering" }
+local GOLDEN_HINTS_3 = { Weight = "Heavy", Temperature = "Hot", Sheen = "Shimmering" }
+local GOLDEN_HINTS_4 = { Weight = "Heavy", Temperature = "Hot", Sheen = "Shimmering", Texture = "Polished" }
 
 function LumpService.CreateGoldenLump(player, zoneNumber)
-	return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS, 6, true, 0)
+	local profile = PlayerDataService.GetProfile(player)
+	local hasScanner = profile ~= nil and profile.Data.passes.scanner
+
+	if hasScanner then
+		return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS_4, 8, true, 0, true)
+	end
+	return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS_3, 6, true, 0, false)
 end
 
 function LumpService.ClearLump(player, lumpId)

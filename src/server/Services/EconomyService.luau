@@ -30,16 +30,21 @@ local function createLeaderstats(player)
 	coins.Parent = leaderstats
 end
 
+-- GDD §10.1: 2x Coins doubles every gain, via coinMultiplier (always 1 until
+-- the pass is owned). This is the sole place gains happen, so applying the
+-- multiplier here covers blind sells, item sales, milestones, and bin
+-- payouts alike without needing to touch any of those call sites.
 function EconomyService.AddCoins(player, amount, reason)
 	local profile = PlayerDataService.GetProfile(player)
 	if profile == nil then
 		return false
 	end
 
-	profile.Data.coins += amount
+	local actualAmount = amount * profile.Data.coinMultiplier
+	profile.Data.coins += actualAmount
 	updateLeaderstats(player, profile.Data.coins)
 	ReplicatedStorage.Remotes.CoinsChanged:FireClient(player, profile.Data.coins)
-	print("[EconomyService] " .. player.Name .. " +" .. amount .. " (" .. reason .. "), balance = " .. profile.Data.coins)
+	print("[EconomyService] " .. player.Name .. " +" .. actualAmount .. " (" .. reason .. "), balance = " .. profile.Data.coins)
 
 	return true
 end

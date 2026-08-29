@@ -60,6 +60,15 @@ local function onRequestClaimDaily(player)
 		profile.Data.goldenLumpsOwed -= 1
 	else
 		profile.Data.lastGoldenLump = os.time()
+
+		-- GDD §10.1: VIP grants a 2nd daily Golden Lump. Reusing
+		-- goldenLumpsOwed (already built for the Golden Lump x3 dev product)
+		-- rather than a separate counter -- this credits an extra claim,
+		-- available immediately, every time the normal cooldown-based claim
+		-- fires for a VIP player.
+		if profile.Data.passes.vip then
+			profile.Data.goldenLumpsOwed += 1
+		end
 	end
 
 	local zoneNumber = getHighestUnlockedZone(profile)

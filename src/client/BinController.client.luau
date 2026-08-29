@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
+local UIJuice = require(ReplicatedStorage.Modules.UIJuice)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -51,6 +52,9 @@ binCloseButton.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
 binCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 binCloseButton.Parent = binFrame
 
+UIJuice.MakeButtonJuicy(binButton)
+UIJuice.MakeButtonJuicy(binCloseButton)
+
 local binScroll = Instance.new("ScrollingFrame")
 binScroll.Size = UDim2.new(1, 0, 1, -40)
 binScroll.Position = UDim2.new(0, 0, 0, 40)
@@ -66,6 +70,9 @@ binList.Parent = binScroll
 
 binButton.Activated:Connect(function()
 	binFrame.Visible = not binFrame.Visible
+	if binFrame.Visible then
+		UIJuice.PopIn(binFrame)
+	end
 end)
 
 binCloseButton.Activated:Connect(function()
@@ -119,6 +126,7 @@ binUpdated.OnClientEvent:Connect(function(entries)
 			buyButton.Activated:Connect(function()
 				requestBuyBin:FireServer(entry.binEntryId)
 			end)
+			UIJuice.MakeButtonJuicy(buyButton)
 		end
 	end
 end)

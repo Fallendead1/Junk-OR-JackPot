@@ -3,6 +3,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
 local TierColors = require(ReplicatedStorage.Modules.TierColors)
+local UIJuice = require(ReplicatedStorage.Modules.UIJuice)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -58,6 +59,9 @@ closeButton.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.Parent = inventoryFrame
 
+UIJuice.MakeButtonJuicy(inventoryButton)
+UIJuice.MakeButtonJuicy(closeButton)
+
 local sectionLabel1 = Instance.new("TextLabel")
 sectionLabel1.Size = UDim2.new(1, -20, 0, 30)
 sectionLabel1.Position = UDim2.new(0, 10, 0, 40)
@@ -108,6 +112,9 @@ shelfList.Parent = shelfScroll
 
 inventoryButton.Activated:Connect(function()
 	inventoryFrame.Visible = not inventoryFrame.Visible
+	if inventoryFrame.Visible then
+		UIJuice.PopIn(inventoryFrame)
+	end
 end)
 
 closeButton.Activated:Connect(function()
@@ -166,6 +173,7 @@ local function refreshInventoryList()
 			placeButton.Activated:Connect(function()
 				requestPlaceShelf:FireServer(index, emptySlot)
 			end)
+			UIJuice.MakeButtonJuicy(placeButton)
 		else
 			placeButton.Text = "SHELF FULL"
 			placeButton.BackgroundColor3 = Color3.fromRGB(70, 70, 70)
@@ -209,6 +217,7 @@ local function refreshShelfList()
 			removeButton.Activated:Connect(function()
 				requestRemoveShelf:FireServer(slot)
 			end)
+			UIJuice.MakeButtonJuicy(removeButton)
 		end
 	end
 end

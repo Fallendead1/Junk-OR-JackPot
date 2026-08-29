@@ -29,6 +29,8 @@ local REMOTE_EVENT_NAMES = {
 	"DailyRefused",
 	"RequestLeaderboard",
 	"LeaderboardResult",
+	"RequestPromptPurchase",
+	"PassPurchased",
 }
 
 local remotesFolder = Instance.new("Folder")
@@ -54,6 +56,7 @@ local SERVICE_INIT_ORDER = {
 	"LeaderboardService",
 	"DailyService",
 	"BinService",
+	"MonetizationService",
 	"DigService",
 }
 

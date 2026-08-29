@@ -6,6 +6,7 @@ local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
 local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 local ShovelTable = require(ReplicatedStorage.Modules.ShovelTable)
 local Config = require(ReplicatedStorage.Modules.Config)
+local UIJuice = require(ReplicatedStorage.Modules.UIJuice)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -24,6 +25,7 @@ local catalogueUpdated = remotes:WaitForChild("CatalogueUpdated")
 local upgradePurchased = remotes:WaitForChild("UpgradePurchased")
 local upgradeRefused = remotes:WaitForChild("UpgradeRefused")
 local myShelfUpdated = remotes:WaitForChild("MyShelfUpdated")
+local passPurchased = remotes:WaitForChild("PassPurchased")
 
 -- Each zone has its own physical dig spot + prompt. The prompt's HoldDuration
 -- starts at the zone's base (Rusty shovel) time; onUpgradePurchased below
@@ -76,6 +78,9 @@ openButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 openButton.TextScaled = true
 openButton.Visible = false
 openButton.Parent = screenGui
+
+UIJuice.MakeButtonJuicy(sellButton)
+UIJuice.MakeButtonJuicy(openButton)
 
 local statusLabel = Instance.new("TextLabel")
 statusLabel.Name = "StatusLabel"
@@ -136,22 +141,25 @@ sellItemButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 sellItemButton.TextScaled = true
 sellItemButton.Parent = revealPanel
 
+UIJuice.MakeButtonJuicy(keepButton)
+UIJuice.MakeButtonJuicy(sellItemButton)
+
 local currentInventoryIndex = nil
 local currentShovelTier = 1
 local currentCatalogueCount = 0
 local currentShelfSlots = 12
 local myZonesUnlocked = { [1] = true }
 
--- Catalogue button + grid
-local catalogueButton = Instance.new("TextButton")
+-- Catalogue button + grid. Image-only icon button, no text or background box.
+local catalogueButton = Instance.new("ImageButton")
 catalogueButton.Name = "CatalogueButton"
-catalogueButton.Text = "CATALOGUE"
-catalogueButton.Size = UDim2.fromOffset(160, 40)
+catalogueButton.Size = UDim2.fromOffset(56, 56)
 catalogueButton.Position = UDim2.new(0, 20, 0, 20)
-catalogueButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-catalogueButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-catalogueButton.TextScaled = true
+catalogueButton.BackgroundTransparency = 1
+catalogueButton.Image = "rbxassetid://110770558728732"
 catalogueButton.Parent = screenGui
+
+UIJuice.MakeButtonJuicy(catalogueButton)
 
 local catalogueFrame = Instance.new("Frame")
 catalogueFrame.Name = "CatalogueFrame"
@@ -178,6 +186,8 @@ catalogueCloseButton.Position = UDim2.new(1, -35, 0, 5)
 catalogueCloseButton.BackgroundColor3 = Color3.fromRGB(170, 40, 40)
 catalogueCloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 catalogueCloseButton.Parent = catalogueFrame
+
+UIJuice.MakeButtonJuicy(catalogueCloseButton)
 
 local catalogueScroll = Instance.new("ScrollingFrame")
 catalogueScroll.Size = UDim2.new(1, 0, 1, -40)
@@ -284,7 +294,13 @@ local function showHints(lumpId, hints)
 	label.TextColor3 = Color3.fromRGB(255, 255, 255)
 	label.TextScaled = true
 	label.TextStrokeTransparency = 0.5
-	label.Text = string.upper(hints.Weight) .. " · " .. string.upper(hints.Temperature) .. " · " .. string.upper(hints.Sheen)
+
+	local words = { string.upper(hints.Weight), string.upper(hints.Temperature), string.upper(hints.Sheen) }
+	if hints.Texture then -- Scanner's 4th hint (GDD §10.1)
+		table.insert(words, string.upper(hints.Texture))
+	end
+	label.Text = table.concat(words, " · ")
+
 	label.Parent = billboard
 end
 
@@ -324,22 +340,25 @@ end)
 
 catalogueButton.Activated:Connect(function()
 	catalogueFrame.Visible = not catalogueFrame.Visible
+	if catalogueFrame.Visible then
+		UIJuice.PopIn(catalogueFrame)
+	end
 end)
 
 catalogueCloseButton.Activated:Connect(function()
 	catalogueFrame.Visible = false
 end)
 
--- Shop: shovel upgrade + Zone 2 unlock
-local shopButton = Instance.new("TextButton")
+-- Shop: shovel upgrade + Zone 2 unlock. Image-only icon button, no text or background box.
+local shopButton = Instance.new("ImageButton")
 shopButton.Name = "ShopButton"
-shopButton.Text = "SHOP"
-shopButton.Size = UDim2.fromOffset(160, 40)
-shopButton.Position = UDim2.new(0, 20, 0, 70)
-shopButton.BackgroundColor3 = Color3.fromRGB(60, 60, 70)
-shopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-shopButton.TextScaled = true
+shopButton.Size = UDim2.fromOffset(56, 56)
+shopButton.Position = UDim2.new(0, 20, 0, 86)
+shopButton.BackgroundTransparency = 1
+shopButton.Image = "rbxassetid://125854557721187"
 shopButton.Parent = screenGui
+
+UIJuice.MakeButtonJuicy(shopButton)
 
 local shopFrame = Instance.new("Frame")
 shopFrame.Name = "ShopFrame"
@@ -410,8 +429,15 @@ buyShelfSlotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 buyShelfSlotButton.TextScaled = true
 buyShelfSlotButton.Parent = shopFrame
 
+UIJuice.MakeButtonJuicy(buyShovelButton)
+UIJuice.MakeButtonJuicy(buyZoneButton)
+UIJuice.MakeButtonJuicy(buyShelfSlotButton)
+
 shopButton.Activated:Connect(function()
 	shopFrame.Visible = not shopFrame.Visible
+	if shopFrame.Visible then
+		UIJuice.PopIn(shopFrame)
+	end
 end)
 
 buyShovelButton.Activated:Connect(function()
@@ -492,17 +518,43 @@ local function showLump(lumpData)
 
 	sellButton.Text = "SELL BLIND — " .. lumpData.blindOffer
 	sellButton.Visible = true
+	UIJuice.PopIn(sellButton)
 
 	openButton.Text = lumpData.openCost <= 0 and "OPEN — FREE" or ("OPEN — " .. lumpData.openCost)
 	openButton.Visible = true
+	UIJuice.PopIn(openButton)
 
 	showHints(lumpData.lumpId, lumpData.hints)
+end
+
+-- GDD §10.1: Auto-Dig repeats the dig automatically, but the SELL BLIND /
+-- OPEN decision always still needs an explicit tap -- that's already
+-- guaranteed here, since this only fires once the lump queue is fully empty
+-- (i.e. every lump from the last dig has already been decided).
+local hasAutoDig = false
+
+-- Retries rather than firing once: the server's dig cooldown is often still
+-- active the instant a lump gets resolved (a single delayed attempt would
+-- silently miss the window and just... stop, with no error to notice). Polls
+-- until a new lump actually shows up, capped so a genuinely blocked dig
+-- (out of the zone, no character, etc.) doesn't loop forever.
+local function autoDigUntilSuccess()
+	for _ = 1, 20 do
+		task.wait(0.3)
+		if currentLumpId ~= nil or not hasAutoDig then
+			return
+		end
+		requestDig:FireServer()
+	end
 end
 
 local function showNextPendingLump()
 	local nextLump = table.remove(pendingLumps, 1)
 	if nextLump then
 		showLump(nextLump)
+	elseif hasAutoDig then
+		hideLumpButtons() -- clears currentLumpId so the retry loop can detect a new one arriving
+		task.spawn(autoDigUntilSuccess)
 	else
 		hideLumpButtons()
 	end
@@ -534,6 +586,7 @@ revealResult.OnClientEvent:Connect(function(itemId, tier, value, isNew, inventor
 	revealDetailLabel.Text = string.upper(tier) .. " — " .. value .. " coins"
 
 	revealPanel.Visible = true
+	UIJuice.PopIn(revealPanel)
 end)
 
 openRefused.OnClientEvent:Connect(function(reason)
@@ -596,4 +649,10 @@ upgradeRefused.OnClientEvent:Connect(function(reason)
 			statusLabel.Text = ""
 		end
 	end)
+end)
+
+passPurchased.OnClientEvent:Connect(function(passName)
+	if passName == "autoDig" then
+		hasAutoDig = true
+	end
 end)

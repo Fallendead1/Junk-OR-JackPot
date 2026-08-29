@@ -35,6 +35,10 @@ function UpgradeService.RecalculateLuck(profile)
 	end
 	luck += milestoneCount * Config.LUCK_PER_MILESTONE
 
+	if profile.Data.passes.luckyCharm then
+		luck += Config.LUCK_CHARM_PASS
+	end
+
 	profile.Data.luckBonus = math.min(luck, Config.LUCK_CAP)
 end
 
@@ -86,10 +90,16 @@ local function onBuyZone(player, profile, zoneNumber)
 		return
 	end
 
-	local paid = EconomyService.RemoveCoins(player, zone.unlockCost, "Unlocked " .. zone.name)
-	if not paid then
-		ReplicatedStorage.Remotes.UpgradeRefused:FireClient(player, "Not enough coins")
-		return
+	-- GDD §10.2: Zone Skip waives the coin cost only -- the catalogue/shovel
+	-- requirement checks above still ran unconditionally either way.
+	if profile.Data.zoneSkipsOwed > 0 then
+		profile.Data.zoneSkipsOwed -= 1
+	else
+		local paid = EconomyService.RemoveCoins(player, zone.unlockCost, "Unlocked " .. zone.name)
+		if not paid then
+			ReplicatedStorage.Remotes.UpgradeRefused:FireClient(player, "Not enough coins")
+			return
+		end
 	end
 
 	profile.Data.zonesUnlocked[zoneNumber] = true

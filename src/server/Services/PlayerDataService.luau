@@ -47,6 +47,10 @@ local ProfileTemplate = {
 	-- Retention
 	lastGoldenLump = 0,
 	goldenLumpsOwed = 0,
+	-- Not in the GDD §11 schema (which only lists goldenLumpsOwed), but GDD
+	-- §10.2's Zone Skip needs an equivalent consumable counter -- added
+	-- following that exact same pattern.
+	zoneSkipsOwed = 0,
 	bestFindValue = 0,
 	bestFindItem = "",
 	weeklyBestValue = 0,

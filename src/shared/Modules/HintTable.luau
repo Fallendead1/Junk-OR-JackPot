@@ -1,6 +1,7 @@
 -- Grade -> hint distributions. Source: GDD §4.7.
 -- Each lump draws 3 independent hints (Weight, Temperature, Sheen); each draw
--- picks Low/Mid/High using its grade's row below.
+-- picks Low/Mid/High using its grade's row below. The Scanner gamepass
+-- (GDD §10.1) adds a 4th independent draw from this same table.
 return {
 	Dud = { Low = 0.70, Mid = 0.25, High = 0.05 },
 	Plain = { Low = 0.35, Mid = 0.45, High = 0.20 },
@@ -8,9 +9,13 @@ return {
 	Charged = { Low = 0.04, Mid = 0.21, High = 0.75 },
 
 	-- The words shown to the player for each hint type's Low/Mid/High level.
+	-- Texture is the Scanner's 4th hint -- the GDD specifies its numbers
+	-- (score range, bucket boundaries) but not a name for it; this one's
+	-- easy to rename if you'd rather call it something else.
 	Labels = {
 		Weight = { Low = "Light", Mid = "Solid", High = "Heavy" },
 		Temperature = { Low = "Cold", Mid = "Warm", High = "Hot" },
 		Sheen = { Low = "Dull", Mid = "Faint", High = "Shimmering" },
+		Texture = { Low = "Rough", Mid = "Smooth", High = "Polished" },
 	},
 }
