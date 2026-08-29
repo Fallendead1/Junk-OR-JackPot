@@ -147,7 +147,7 @@ UIJuice.MakeButtonJuicy(sellItemButton)
 local currentInventoryIndex = nil
 local currentShovelTier = 1
 local currentCatalogueCount = 0
-local currentShelfSlots = 12
+local currentShelfSlots = Config.SHELF_BASE_SLOTS
 local myZonesUnlocked = { [1] = true }
 
 -- Catalogue button + grid. Image-only icon button, no text or background box.
@@ -464,12 +464,10 @@ buyShelfSlotButton.Activated:Connect(function()
 	requestBuyUpgrade:FireServer("shelfSlot", currentShelfSlots + 1)
 end)
 
-local SHELF_BASE_SLOTS = 12
-
 -- GDD §7.3: matches UpgradeService's server-side formula exactly (this is
 -- display-only; the server is what actually validates and charges).
 local function nextShelfSlotCost()
-	local n = (currentShelfSlots + 1) - SHELF_BASE_SLOTS
+	local n = (currentShelfSlots + 1) - Config.SHELF_BASE_SLOTS
 	return math.round(Config.SHELF_BASE_COST * Config.SHELF_COST_MULT ^ n)
 end
 

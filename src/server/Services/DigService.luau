@@ -6,6 +6,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Config = require(ReplicatedStorage.Modules.Config)
 local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 local LumpService = require(ServerScriptService.Services.LumpService)
 local EconomyService = require(ServerScriptService.Services.EconomyService)
 local RevealService = require(ServerScriptService.Services.RevealService)
@@ -15,6 +16,7 @@ local AnnounceService = require(ServerScriptService.Services.AnnounceService)
 local BinService = require(ServerScriptService.Services.BinService)
 local DailyService = require(ServerScriptService.Services.DailyService)
 local LeaderboardService = require(ServerScriptService.Services.LeaderboardService)
+local TelemetryService = require(ServerScriptService.Services.TelemetryService)
 
 local DigService = {}
 
@@ -24,7 +26,6 @@ local lastDigTimeByPlayer = {}
 -- here means: the server checks the player's actual position against this
 -- radius rather than trusting anything the client claims about where it is.
 local ZONE_DIG_SPOT_NAMES = { [1] = "DigSpot", [2] = "DigSpot2", [3] = "DigSpot3", [4] = "DigSpot4", [5] = "DigSpot5" }
-local ZONE_REGION_RADIUS = 15
 
 local function getPlayerZone(player, profile)
 	local character = player.Character
@@ -37,7 +38,7 @@ local function getPlayerZone(player, profile)
 	for zoneNumber = 5, 1, -1 do
 		if profile.Data.zonesUnlocked[zoneNumber] then
 			local digSpot = Workspace:FindFirstChild(ZONE_DIG_SPOT_NAMES[zoneNumber])
-			if digSpot and (rootPart.Position - digSpot.Position).Magnitude <= ZONE_REGION_RADIUS then
+			if digSpot and (rootPart.Position - digSpot.Position).Magnitude <= Config.ZONE_DIG_RADIUS then
 				return zoneNumber
 			end
 		end
@@ -63,6 +64,10 @@ local function sendMyInventory(player, profile)
 end
 
 local function onRequestDig(player)
+	if not RateLimiter.Allow(player, "RequestDig") then
+		return
+	end
+
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return
@@ -102,6 +107,10 @@ local function onRequestDig(player)
 end
 
 local function onRequestSellBlind(player, lumpId)
+	if not RateLimiter.Allow(player, "RequestSellBlind") then
+		return
+	end
+
 	local lump = LumpService.GetActiveLump(player, lumpId)
 	if not lump then
 		return
@@ -111,6 +120,7 @@ local function onRequestSellBlind(player, lumpId)
 	LumpService.ClearLump(player, lumpId)
 	EconomyService.AddCoins(player, blindOffer, "Blind sell (Zone " .. lump.zone .. ", hint score " .. lump.hintScore .. ")")
 	ReplicatedStorage.Remotes.BlindSold:FireClient(player, blindOffer)
+	TelemetryService.LogDecision(player, lump.zone, lump.hintScore, "BLIND")
 
 	-- The lump isn't destroyed by the sale (GDD §8.3) -- it lives on in the
 	-- bin for another player to buy at 2x.
@@ -118,6 +128,10 @@ local function onRequestSellBlind(player, lumpId)
 end
 
 local function onRequestOpen(player, lumpId)
+	if not RateLimiter.Allow(player, "RequestOpen") then
+		return
+	end
+
 	local lump = LumpService.GetActiveLump(player, lumpId)
 	if not lump then
 		return
@@ -148,6 +162,7 @@ local function onRequestOpen(player, lumpId)
 	end
 
 	LumpService.ClearLump(player, lumpId)
+	TelemetryService.LogDecision(player, lump.zone, lump.hintScore, "OPEN")
 
 	local tier = lump.isGolden and DailyService.RollGoldenTier() or RevealService.RollTier(lump.grade)
 	local itemId, item = RevealService.PickItem(tier, lump.zone)
@@ -171,6 +186,10 @@ local function onRequestOpen(player, lumpId)
 end
 
 local function onRequestSellItem(player, inventoryIndex)
+	if not RateLimiter.Allow(player, "RequestSellItem") then
+		return
+	end
+
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return

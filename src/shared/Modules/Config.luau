@@ -33,6 +33,7 @@ return {
 	ANNOUNCE_MIN_TIER = "Epic",
 	ANNOUNCE_PER_PLAYER_COOLDOWN = 60,
 	ANNOUNCE_PER_SERVER_PER_MIN = 6,
+	ANNOUNCE_SERVER_WINDOW_SECONDS = 60, -- the "minute" in ANNOUNCE_PER_SERVER_PER_MIN
 
 	-- REWARDS
 	MILESTONE_THRESHOLDS = { 10, 25, 40, 60 },
@@ -41,7 +42,18 @@ return {
 	SHARDS_PER_MYTHIC = 1,
 	SHARDS_PER_RELIC = 10,
 
+	-- MONETIZATION (GDD §10)
+	DOUBLE_COINS_MULTIPLIER = 2,
+	BIG_SHELF_BONUS_SLOTS = 10,
+	GOLDEN_LUMP_X3_COUNT = 3,
+
+	-- WORLD
+	SHELF_BASE_SLOTS = 12, -- free display slots before any are bought (§7.3)
+	WAREHOUSE_PLOT_COUNT = 24, -- shared warehouse plots (§8.2)
+	ZONE_DIG_RADIUS = 15, -- studs from a zone's DigSpot the player must stand within
+
 	-- SECURITY
 	DIG_COOLDOWN_GRACE = 0.15, -- seconds of leniency on server-side dig timing
 	MAX_REMOTE_PER_SEC = 8,
+	MAX_REMOTE_WINDOW_SECONDS = 1, -- the "sec" in MAX_REMOTE_PER_SEC
 }

@@ -7,6 +7,7 @@ local PlayerDataService = require(ServerScriptService.Services.PlayerDataService
 local EconomyService = require(ServerScriptService.Services.EconomyService)
 local RevealService = require(ServerScriptService.Services.RevealService)
 local LeaderboardService = require(ServerScriptService.Services.LeaderboardService)
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 
 local BinService = {}
 
@@ -72,6 +73,10 @@ function BinService.PushLump(player, lump, blindPrice)
 end
 
 local function onRequestBuyBin(player, binEntryId)
+	if not RateLimiter.Allow(player, "RequestBuyBin") then
+		return
+	end
+
 	removeExpired()
 
 	local entryIndex, entry

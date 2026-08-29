@@ -3,15 +3,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Config = require(ReplicatedStorage.Modules.Config)
 local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
 local TierColors = require(ReplicatedStorage.Modules.TierColors)
 
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 
 local ShelfService = {}
 
--- GDD §8.2: a shared warehouse with a pool of 24 plots, assigned on join.
-local PLOT_COUNT = 24
+-- GDD §8.2: a shared warehouse with a pool of Config.WAREHOUSE_PLOT_COUNT plots, assigned on join.
 local PLOTS_PER_ROW = 6
 local PLOT_SIZE = 20
 local PLOT_SPACING = 26
@@ -46,7 +47,7 @@ local function createWarehouse()
 	warehouseFolder.Name = "Warehouse"
 	warehouseFolder.Parent = Workspace
 
-	for plotNumber = 1, PLOT_COUNT do
+	for plotNumber = 1, Config.WAREHOUSE_PLOT_COUNT do
 		local pad = Instance.new("Part")
 		pad.Name = "Plot" .. plotNumber
 		pad.Anchored = true
@@ -160,7 +161,7 @@ local function onProfileLoaded(player)
 	sendMyShelf(player, profile)
 
 	if #availablePlotNumbers == 0 then
-		return -- no plots left this session (more than 24 concurrent players)
+		return -- no plots left this session (more concurrent players than warehouse plots)
 	end
 
 	local plotNumber = table.remove(availablePlotNumbers, 1)
@@ -188,6 +189,10 @@ local function onPlayerRemoving(player)
 end
 
 local function onRequestPlaceShelf(player, inventoryIndex, slot)
+	if not RateLimiter.Allow(player, "RequestPlaceShelf") then
+		return
+	end
+
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return
@@ -220,6 +225,10 @@ local function onRequestPlaceShelf(player, inventoryIndex, slot)
 end
 
 local function onRequestRemoveShelf(player, slot)
+	if not RateLimiter.Allow(player, "RequestRemoveShelf") then
+		return
+	end
+
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return
@@ -253,7 +262,7 @@ function ShelfService.NotifyShelfSlotsChanged(player, profile)
 end
 
 function ShelfService.Init()
-	for i = 1, PLOT_COUNT do
+	for i = 1, Config.WAREHOUSE_PLOT_COUNT do
 		table.insert(availablePlotNumbers, i)
 	end
 

@@ -6,6 +6,7 @@ local Config = require(ReplicatedStorage.Modules.Config)
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local LumpService = require(ServerScriptService.Services.LumpService)
 local RevealService = require(ServerScriptService.Services.RevealService)
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 
 local DailyService = {}
 
@@ -40,6 +41,10 @@ local function getHighestUnlockedZone(profile)
 end
 
 local function onRequestClaimDaily(player)
+	if not RateLimiter.Allow(player, "RequestClaimDaily") then
+		return
+	end
+
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return

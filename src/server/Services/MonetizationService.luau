@@ -3,12 +3,14 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Config = require(ReplicatedStorage.Modules.Config)
 local MonetizationTable = require(ReplicatedStorage.Modules.MonetizationTable)
 
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local EconomyService = require(ServerScriptService.Services.EconomyService)
 local UpgradeService = require(ServerScriptService.Services.UpgradeService)
 local ShelfService = require(ServerScriptService.Services.ShelfService)
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 
 local MonetizationService = {}
 
@@ -22,10 +24,10 @@ local function applyPassEffects(player, profile, passName)
 	profile.Data.passes[passName] = true
 
 	if passName == "bigShelf" then
-		profile.Data.shelfSlots += 10
+		profile.Data.shelfSlots += Config.BIG_SHELF_BONUS_SLOTS
 		ShelfService.NotifyShelfSlotsChanged(player, profile)
 	elseif passName == "doubleCoins" then
-		profile.Data.coinMultiplier = 2
+		profile.Data.coinMultiplier = Config.DOUBLE_COINS_MULTIPLIER
 	elseif passName == "luckyCharm" then
 		UpgradeService.RecalculateLuck(profile)
 	elseif passName == "vip" then
@@ -104,7 +106,7 @@ local function processReceipt(receiptInfo)
 	if info.coins then
 		EconomyService.AddCoins(player, info.coins, "Dev product: " .. productName)
 	elseif productName == "goldenLumpX3" then
-		profile.Data.goldenLumpsOwed += 3
+		profile.Data.goldenLumpsOwed += Config.GOLDEN_LUMP_X3_COUNT
 	elseif productName == "zoneSkip" then
 		profile.Data.zoneSkipsOwed += 1
 	end
@@ -113,6 +115,10 @@ local function processReceipt(receiptInfo)
 end
 
 local function onRequestPromptPurchase(player, kind, name)
+	if not RateLimiter.Allow(player, "RequestPromptPurchase") then
+		return
+	end
+
 	if kind == "pass" then
 		local gamePassId = MonetizationTable.GamePasses[name]
 		if gamePassId then

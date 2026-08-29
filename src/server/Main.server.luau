@@ -45,6 +45,7 @@ end
 
 -- Add service names here, in the exact order they must initialise.
 local SERVICE_INIT_ORDER = {
+	"RateLimiter",
 	"PlayerDataService",
 	"EconomyService",
 	"LumpService",
@@ -54,6 +55,7 @@ local SERVICE_INIT_ORDER = {
 	"RevealService",
 	"AnnounceService",
 	"LeaderboardService",
+	"TelemetryService",
 	"DailyService",
 	"BinService",
 	"MonetizationService",

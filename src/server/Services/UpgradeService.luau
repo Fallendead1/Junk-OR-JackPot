@@ -8,8 +8,7 @@ local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local EconomyService = require(ServerScriptService.Services.EconomyService)
 local ShelfService = require(ServerScriptService.Services.ShelfService)
-
-local SHELF_BASE_SLOTS = 12
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 
 local UpgradeService = {}
 
@@ -115,7 +114,7 @@ local function onBuyShelfSlot(player, profile, slotNumber)
 		return -- must buy the next slot, one at a time
 	end
 
-	local n = slotNumber - SHELF_BASE_SLOTS
+	local n = slotNumber - Config.SHELF_BASE_SLOTS
 	if n < 1 then
 		return -- slots 1-12 are already free
 	end
@@ -133,6 +132,10 @@ local function onBuyShelfSlot(player, profile, slotNumber)
 end
 
 local function onRequestBuyUpgrade(player, upgradeType, tier)
+	if not RateLimiter.Allow(player, "RequestBuyUpgrade") then
+		return
+	end
+
 	local profile = PlayerDataService.GetProfile(player)
 	if not profile then
 		return

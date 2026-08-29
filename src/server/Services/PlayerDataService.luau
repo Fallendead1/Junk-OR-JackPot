@@ -1,6 +1,8 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Config = require(ReplicatedStorage.Modules.Config)
 local ProfileStore = require(ServerScriptService.Packages.ProfileStore)
 
 -- Phase 2 requires autosaving every 60s; ProfileStore defaults to 300s.
@@ -19,7 +21,7 @@ local ProfileTemplate = {
 	currentZone = 1,
 	zonesUnlocked = { [1] = true },
 	shovelTier = 1,
-	shelfSlots = 12,
+	shelfSlots = Config.SHELF_BASE_SLOTS,
 	luckBonus = 0.0,
 
 	-- Collection

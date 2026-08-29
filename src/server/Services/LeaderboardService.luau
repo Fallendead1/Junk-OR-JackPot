@@ -1,5 +1,8 @@
 local DataStoreService = game:GetService("DataStoreService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 
 local LeaderboardService = {}
 
@@ -77,6 +80,10 @@ function LeaderboardService.GetTopFinds(limit)
 end
 
 local function onRequestLeaderboard(player)
+	if not RateLimiter.Allow(player, "RequestLeaderboard") then
+		return
+	end
+
 	local topFinds = LeaderboardService.GetTopFinds(3)
 	ReplicatedStorage.Remotes.LeaderboardResult:FireClient(player, topFinds)
 end

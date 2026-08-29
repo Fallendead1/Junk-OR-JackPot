@@ -187,15 +187,19 @@ end
 -- time (DailyService.RollGoldenTier), not here.
 local GOLDEN_HINTS_3 = { Weight = "Heavy", Temperature = "Hot", Sheen = "Shimmering" }
 local GOLDEN_HINTS_4 = { Weight = "Heavy", Temperature = "Hot", Sheen = "Shimmering", Texture = "Polished" }
+-- All-High hint scores, derived rather than hardcoded so they can't drift
+-- from HINT_LEVEL_SCORE.High if that mapping ever changes.
+local GOLDEN_HINT_SCORE_3 = #HINT_TYPES * HINT_LEVEL_SCORE.High
+local GOLDEN_HINT_SCORE_4 = #HINT_TYPES_WITH_SCANNER * HINT_LEVEL_SCORE.High
 
 function LumpService.CreateGoldenLump(player, zoneNumber)
 	local profile = PlayerDataService.GetProfile(player)
 	local hasScanner = profile ~= nil and profile.Data.passes.scanner
 
 	if hasScanner then
-		return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS_4, 8, true, 0, true)
+		return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS_4, GOLDEN_HINT_SCORE_4, true, 0, true)
 	end
-	return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS_3, 6, true, 0, false)
+	return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS_3, GOLDEN_HINT_SCORE_3, true, 0, false)
 end
 
 function LumpService.ClearLump(player, lumpId)

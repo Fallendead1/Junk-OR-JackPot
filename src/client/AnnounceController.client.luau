@@ -1,7 +1,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local SoundService = game:GetService("SoundService")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
+
+local SoundTable = require(ReplicatedStorage.Modules.SoundTable)
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -54,9 +57,22 @@ relicFlash.Visible = false
 relicFlash.ZIndex = 11
 relicFlash.Parent = screenGui
 
--- TODO: no sound assets exist yet for Epic/Mythic/Relic (GDD doesn't specify
--- asset ids — that's a content choice for the owner, not something to guess
--- at). Wire Sound instances here once real SoundIds are chosen.
+-- Plays the tier's sound from SoundTable, if one has been set. Left blank,
+-- this is a silent no-op -- see SoundTable.luau to fill in real asset ids.
+local function playTierSound(tier)
+	local soundId = SoundTable[tier]
+	if not soundId or soundId == "" then
+		return
+	end
+
+	local sound = Instance.new("Sound")
+	sound.SoundId = soundId
+	sound.Parent = SoundService
+	sound:Play()
+	sound.Ended:Connect(function()
+		sound:Destroy()
+	end)
+end
 
 local function postToChat(message)
 	local ok = pcall(function()
@@ -74,6 +90,7 @@ end
 
 announce.OnClientEvent:Connect(function(message, tier)
 	postToChat(message)
+	playTierSound(tier)
 
 	if tier == "Mythic" then
 		goldBorder.Visible = true
