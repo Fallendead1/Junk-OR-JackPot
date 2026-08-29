@@ -1,10 +1,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
+local Config = require(ReplicatedStorage.Modules.Config)
 local GradeTable = require(ReplicatedStorage.Modules.GradeTable)
 local ItemTable = require(ReplicatedStorage.Modules.ItemTable)
 
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
+local CatalogueService = require(ServerScriptService.Services.CatalogueService)
+local UpgradeService = require(ServerScriptService.Services.UpgradeService)
 
 -- Fixed iteration order for the cumulative tier roll (GradeTable's per-grade
 -- tables are plain tables — pairs() order isn't guaranteed).
@@ -75,6 +78,25 @@ function RevealService.RecordCatalogue(player, profile, itemId, item)
 	end
 
 	sendCatalogue(player, profile)
+
+	return isNew
+end
+
+-- Single entry point for "the player got an item" (used by both a normal
+-- open and a bin purchase): writes the catalogue, grants Relic Shards
+-- (GDD §12), pays out any newly-crossed milestone, and recalculates luck
+-- exactly once at the end covering both changes. Returns isNew.
+function RevealService.ProcessReveal(player, profile, tier, itemId, item)
+	local isNew = RevealService.RecordCatalogue(player, profile, itemId, item)
+
+	if tier == "Mythic" then
+		profile.Data.relicShards += Config.SHARDS_PER_MYTHIC
+	elseif tier == "Relic" then
+		profile.Data.relicShards += Config.SHARDS_PER_RELIC
+	end
+
+	CatalogueService.CheckMilestones(player, profile)
+	UpgradeService.RecalculateLuck(profile)
 
 	return isNew
 end

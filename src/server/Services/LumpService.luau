@@ -110,19 +110,16 @@ function LumpService.GetActiveLump(player, lumpId)
 	return lumps and lumps[lumpId]
 end
 
--- Rolls a grade, generates its hints, and spawns the physical lump welded to
--- the player's hand. Returns nil if the character isn't ready. handOffset
--- nudges the second lump in an Excavator's double-dig so the two don't render
--- on top of each other.
-function LumpService.CreateLump(player, zoneNumber, handOffset)
+-- Shared by CreateLump and CreateGoldenLump. Spawns the physical lump welded
+-- to the player's hand and registers it. Returns nil if the character isn't
+-- ready. handOffset nudges the second lump in an Excavator's double-dig so
+-- the two don't render on top of each other.
+local function spawnLump(player, zoneNumber, grade, hints, hintScore, isGolden, handOffset)
 	local character = player.Character
 	local handPart = character and getHandAttachPart(character)
 	if not handPart then
 		return nil
 	end
-
-	local grade = LumpService.RollGrade(player, zoneNumber)
-	local hints, hintScore = LumpService.GenerateHints(grade)
 
 	nextLumpId += 1
 	local lumpId = tostring(nextLumpId)
@@ -133,8 +130,8 @@ function LumpService.CreateLump(player, zoneNumber, handOffset)
 	local part = Instance.new("Part")
 	part.Name = "Lump_" .. lumpId
 	part.Size = LUMP_SIZE
-	part.Color = LUMP_COLOR
-	part.Material = Enum.Material.Slate
+	part.Color = isGolden and Color3.fromRGB(255, 215, 0) or LUMP_COLOR
+	part.Material = isGolden and Enum.Material.Neon or Enum.Material.Slate
 	part.CanCollide = false
 	part.CFrame = handPart.CFrame * CFrame.new((handOffset or 0) * 2, -1, 0)
 	part.Parent = Workspace
@@ -150,6 +147,7 @@ function LumpService.CreateLump(player, zoneNumber, handOffset)
 		zone = zoneNumber,
 		hints = hints,
 		hintScore = hintScore,
+		isGolden = isGolden,
 		part = part,
 	}
 
@@ -157,6 +155,24 @@ function LumpService.CreateLump(player, zoneNumber, handOffset)
 	activeLumps[player][lumpId] = lump
 
 	return lump
+end
+
+-- Rolls a grade, generates its hints, and spawns the physical lump welded to
+-- the player's hand.
+function LumpService.CreateLump(player, zoneNumber, handOffset)
+	local grade = LumpService.RollGrade(player, zoneNumber)
+	local hints, hintScore = LumpService.GenerateHints(grade)
+	return spawnLump(player, zoneNumber, grade, hints, hintScore, false, handOffset)
+end
+
+-- GDD §9.2: the Daily Golden Lump is always Charged, and its hints are always
+-- forced all-High -- the player is meant to know it's special, not have to
+-- read it. The actual reroll-until-Rare-or-better guarantee happens at open
+-- time (DailyService.RollGoldenTier), not here.
+local GOLDEN_HINTS = { Weight = "Heavy", Temperature = "Hot", Sheen = "Shimmering" }
+
+function LumpService.CreateGoldenLump(player, zoneNumber)
+	return spawnLump(player, zoneNumber, "Charged", GOLDEN_HINTS, 6, true, 0)
 end
 
 function LumpService.ClearLump(player, lumpId)

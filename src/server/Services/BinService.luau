@@ -6,6 +6,7 @@ local Config = require(ReplicatedStorage.Modules.Config)
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local EconomyService = require(ServerScriptService.Services.EconomyService)
 local RevealService = require(ServerScriptService.Services.RevealService)
+local LeaderboardService = require(ServerScriptService.Services.LeaderboardService)
 
 local BinService = {}
 
@@ -106,7 +107,7 @@ local function onRequestBuyBin(player, binEntryId)
 	-- Rolls immediately using the lump's stored grade -- no second open fee.
 	local tier = RevealService.RollTier(entry.grade)
 	local itemId, item = RevealService.PickItem(tier, entry.zone)
-	local isNew = RevealService.RecordCatalogue(player, buyerProfile, itemId, item)
+	local isNew = RevealService.ProcessReveal(player, buyerProfile, tier, itemId, item)
 
 	table.insert(buyerProfile.Data.inventory, {
 		itemId = itemId,
@@ -115,6 +116,8 @@ local function onRequestBuyBin(player, binEntryId)
 	})
 	local inventoryIndex = #buyerProfile.Data.inventory
 	ReplicatedStorage.Remotes.MyInventoryUpdated:FireClient(player, buyerProfile.Data.inventory)
+
+	LeaderboardService.RecordFind(player, buyerProfile, item.name, item.value)
 
 	ReplicatedStorage.Remotes.RevealResult:FireClient(player, itemId, tier, item.value, isNew, inventoryIndex)
 

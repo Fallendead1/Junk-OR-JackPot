@@ -13,6 +13,8 @@ local PlayerDataService = require(ServerScriptService.Services.PlayerDataService
 local UpgradeService = require(ServerScriptService.Services.UpgradeService)
 local AnnounceService = require(ServerScriptService.Services.AnnounceService)
 local BinService = require(ServerScriptService.Services.BinService)
+local DailyService = require(ServerScriptService.Services.DailyService)
+local LeaderboardService = require(ServerScriptService.Services.LeaderboardService)
 
 local DigService = {}
 
@@ -127,26 +129,29 @@ local function onRequestOpen(player, lumpId)
 	end
 
 	local zone = ZoneTable[lump.zone]
-	local usingFreeOpen = profile.Data.freeOpensLeft > 0
-	local cost = getEffectiveOpenCost(profile, zone)
 
-	if cost > 0 then
-		local paid = EconomyService.RemoveCoins(player, cost, "Open (Zone " .. lump.zone .. ")")
-		if not paid then
-			ReplicatedStorage.Remotes.OpenRefused:FireClient(player, "Not enough coins")
-			return
+	if not lump.isGolden then
+		local usingFreeOpen = profile.Data.freeOpensLeft > 0
+		local cost = getEffectiveOpenCost(profile, zone)
+
+		if cost > 0 then
+			local paid = EconomyService.RemoveCoins(player, cost, "Open (Zone " .. lump.zone .. ")")
+			if not paid then
+				ReplicatedStorage.Remotes.OpenRefused:FireClient(player, "Not enough coins")
+				return
+			end
 		end
-	end
 
-	if usingFreeOpen then
-		profile.Data.freeOpensLeft -= 1
+		if usingFreeOpen then
+			profile.Data.freeOpensLeft -= 1
+		end
 	end
 
 	LumpService.ClearLump(player, lumpId)
 
-	local tier = RevealService.RollTier(lump.grade)
+	local tier = lump.isGolden and DailyService.RollGoldenTier() or RevealService.RollTier(lump.grade)
 	local itemId, item = RevealService.PickItem(tier, lump.zone)
-	local isNew = RevealService.RecordCatalogue(player, profile, itemId, item)
+	local isNew = RevealService.ProcessReveal(player, profile, tier, itemId, item)
 
 	table.insert(profile.Data.inventory, {
 		itemId = itemId,
@@ -156,6 +161,7 @@ local function onRequestOpen(player, lumpId)
 	local inventoryIndex = #profile.Data.inventory
 	sendMyInventory(player, profile)
 
+	LeaderboardService.RecordFind(player, profile, item.name, item.value)
 	AnnounceService.Announce(player, tier, item.name, item.value, zone.name)
 
 	-- Extends GDD §12.2's RevealResult(itemId, tier, value, isNew) with the

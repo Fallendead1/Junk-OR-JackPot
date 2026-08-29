@@ -17,10 +17,24 @@ function UpgradeService.GetDigTimeMultiplier(profile)
 	return ShovelTable[profile.Data.shovelTier].digTimeMultiplier
 end
 
--- GDD §7.2: luck is recalculated from every source on every upgrade, then
--- hard-clamped. Only the shovel is a source until Phase 12/13 add the rest.
-local function recalculateLuck(profile)
+-- GDD §7.2: luck is recalculated from EVERY source, every time any one of
+-- them changes -- never just added to in place, or an old source could get
+-- silently double-counted or a stale source never removed. Shovel is a
+-- "replaces" source (read straight off the current tier, never summed across
+-- tiers owned); shards and milestones are additive, each with its own cap
+-- before the final hard clamp. Called by UpgradeService itself (shovel
+-- purchases) and by RevealService.ProcessReveal (shards, milestones).
+function UpgradeService.RecalculateLuck(profile)
 	local luck = ShovelTable[profile.Data.shovelTier].luckBonus
+
+	luck += math.min(profile.Data.relicShards * Config.LUCK_PER_SHARD, Config.LUCK_SHARD_CAP)
+
+	local milestoneCount = 0
+	for _ in pairs(profile.Data.milestonesPaid) do
+		milestoneCount += 1
+	end
+	luck += milestoneCount * Config.LUCK_PER_MILESTONE
+
 	profile.Data.luckBonus = math.min(luck, Config.LUCK_CAP)
 end
 
@@ -45,7 +59,7 @@ local function onBuyShovel(player, profile, tier)
 	end
 
 	profile.Data.shovelTier = tier
-	recalculateLuck(profile)
+	UpgradeService.RecalculateLuck(profile)
 
 	ReplicatedStorage.Remotes.UpgradePurchased:FireClient(player, "shovel", tier)
 end

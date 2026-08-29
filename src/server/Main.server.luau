@@ -25,6 +25,10 @@ local REMOTE_EVENT_NAMES = {
 	"RequestRemoveShelf",
 	"MyShelfUpdated",
 	"MyInventoryUpdated",
+	"RequestClaimDaily",
+	"DailyRefused",
+	"RequestLeaderboard",
+	"LeaderboardResult",
 }
 
 local remotesFolder = Instance.new("Folder")
@@ -42,10 +46,13 @@ local SERVICE_INIT_ORDER = {
 	"PlayerDataService",
 	"EconomyService",
 	"LumpService",
-	"RevealService",
 	"ShelfService",
 	"UpgradeService",
+	"CatalogueService",
+	"RevealService",
 	"AnnounceService",
+	"LeaderboardService",
+	"DailyService",
 	"BinService",
 	"DigService",
 }
