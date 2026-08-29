@@ -50,6 +50,7 @@ local SERVICE_INIT_ORDER = {
 	"EconomyService",
 	"LumpService",
 	"ShelfService",
+	"ShovelToolService",
 	"UpgradeService",
 	"CatalogueService",
 	"RevealService",

@@ -8,6 +8,7 @@ local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local EconomyService = require(ServerScriptService.Services.EconomyService)
 local ShelfService = require(ServerScriptService.Services.ShelfService)
+local ShovelToolService = require(ServerScriptService.Services.ShovelToolService)
 local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 
 local UpgradeService = {}
@@ -63,6 +64,7 @@ local function onBuyShovel(player, profile, tier)
 
 	profile.Data.shovelTier = tier
 	UpgradeService.RecalculateLuck(profile)
+	ShovelToolService.OnShovelUpgraded(player, tier)
 
 	ReplicatedStorage.Remotes.UpgradePurchased:FireClient(player, "shovel", tier)
 end
