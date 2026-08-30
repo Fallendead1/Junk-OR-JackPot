@@ -46,7 +46,11 @@ local function toolToCarryModel(toolClone, tag)
 	return model
 end
 
-local function attachCarriedModel(character, model, bodyPart, offset)
+-- useMotor6D is for the shovel only -- a Motor6D's C0 can be tweened for the
+-- per-click swing (§4.3), which a plain WeldConstraint can't do (it just
+-- locks whatever relative CFrame existed at creation). The detector never
+-- swings, so it stays on the simpler WeldConstraint.
+local function attachCarriedModel(character, model, bodyPart, offset, useMotor6D)
 	local handle = model:FindFirstChild("Handle")
 	if not handle or not bodyPart then
 		model:Destroy()
@@ -55,10 +59,20 @@ local function attachCarriedModel(character, model, bodyPart, offset)
 
 	model.Parent = character
 	handle.CFrame = bodyPart.CFrame * offset
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = bodyPart
-	weld.Part1 = handle
-	weld.Parent = handle
+
+	if useMotor6D then
+		local motor = Instance.new("Motor6D")
+		motor.Name = "CarryMotor"
+		motor.Part0 = bodyPart
+		motor.Part1 = handle
+		motor.C0 = offset
+		motor.Parent = handle
+	else
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = bodyPart
+		weld.Part1 = handle
+		weld.Parent = handle
+	end
 end
 
 local function clearCarried(character, tag)
@@ -67,6 +81,23 @@ local function clearCarried(character, tag)
 			child:Destroy()
 		end
 	end
+end
+
+-- §5.3/Step 10: walkSpeedBonus is a fraction (0.05 = +5%), cached on the
+-- profile whenever the equipped shovel changes. 16 is Roblox's own default
+-- Humanoid.WalkSpeed, not a game-balance number -- it's the platform's
+-- baseline the bonus applies on top of.
+local BASE_WALK_SPEED = 16
+
+local function applyWalkSpeed(player)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local profile = PlayerDataService.GetProfile(player)
+	if not humanoid or not profile then
+		return
+	end
+
+	humanoid.WalkSpeed = BASE_WALK_SPEED * (1 + profile.Data.walkSpeedBonus)
 end
 
 local function equipVisuals(player)
@@ -89,7 +120,7 @@ local function equipVisuals(player)
 		local template = shovelToolsFolder:FindFirstChild(shovelInfo.name)
 		if template then
 			local carryModel = toolToCarryModel(template:Clone(), "IsCarriedShovel")
-			attachCarriedModel(character, carryModel, torso, SHOVEL_BACK_OFFSET)
+			attachCarriedModel(character, carryModel, torso, SHOVEL_BACK_OFFSET, true)
 		end
 	end
 
@@ -104,18 +135,23 @@ local function equipVisuals(player)
 	end
 end
 
--- Called by whatever purchase/equip flow lands later (System 5/7's
--- RequestEquipTool) once a player's equipped tier actually changes.
+-- Called by EquipmentShopService once a player's equipped tier actually
+-- changes (buy or plain re-equip).
 function EquipmentVisualService.RefreshForPlayer(player)
 	equipVisuals(player)
+	applyWalkSpeed(player)
 end
 
 function EquipmentVisualService.Init()
-	PlayerDataService.ProfileLoaded.Event:Connect(equipVisuals)
+	PlayerDataService.ProfileLoaded.Event:Connect(function(player)
+		equipVisuals(player)
+		applyWalkSpeed(player)
+	end)
 
 	Players.PlayerAdded:Connect(function(player)
 		player.CharacterAdded:Connect(function()
 			task.wait(0.2) -- let the rig's body parts finish loading
+			applyWalkSpeed(player)
 			equipVisuals(player)
 		end)
 	end)

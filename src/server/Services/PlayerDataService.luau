@@ -24,10 +24,11 @@ local ProfileTemplate = {
 	shelfSlots = Config.SHELF_BASE_SLOTS,
 	luckBonus = 0.0,
 
-	-- Dig minigame equipment (dig-minigame-spec.md §5.3)
-	equippedDetectorTier = 0,
+	-- Dig minigame equipment (dig-minigame-spec.md §5.3). Detector tiers are
+	-- 1-5 here, not the spec's own 0-4 -- see Config.DETECTOR_TIERS for why.
+	equippedDetectorTier = 1,
 	equippedShovelTier = 1,
-	ownedDetectors = { [0] = true },
+	ownedDetectors = { [1] = true },
 	ownedShovels = { [1] = true },
 	walkSpeedBonus = 0,
 
@@ -119,6 +120,15 @@ local function onPlayerAdded(player)
 	if profile.Data.createdAt == 0 then
 		profile.Data.createdAt = os.time()
 	end
+
+	-- Migration: detector tiers were renumbered 1-5 instead of the spec's own
+	-- 0-4 (Reconcile silently drops a template default keyed at 0 -- see
+	-- Config.DETECTOR_TIERS). Anyone whose save predates this fix would
+	-- otherwise be stuck pointing at a tier that no longer exists.
+	if profile.Data.equippedDetectorTier == 0 then
+		profile.Data.equippedDetectorTier = 1
+	end
+	profile.Data.ownedDetectors[1] = true -- tier 1 (Starter) is always free/owned
 
 	profiles[player] = profile
 	print("[PlayerDataService] Loaded profile for " .. player.Name)

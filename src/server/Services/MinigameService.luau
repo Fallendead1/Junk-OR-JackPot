@@ -171,6 +171,12 @@ local function grantWin(player, profile, minigame)
 	ReplicatedStorage.Remotes.RevealResult:FireClient(player, itemId, minigame.tier, item.value, isNew, inventoryIndex)
 end
 
+-- §4.4: the client's win VFX (particle fountain, sound, camera zoom, the
+-- find spot shrinking) plays out over ~0.5s before "the existing reveal flow"
+-- fires -- so MinigameWin goes out immediately, but the actual item grant
+-- (and destroying the part the client is still animating) waits for that
+-- window. activeMinigames stays populated the whole time, correctly blocking
+-- a second minigame from starting mid-sequence.
 local function onRequestMinigameSuccess(player, findSpotId)
 	local minigame = activeMinigames[player]
 	if not minigame or minigame.findSpotId ~= findSpotId then
@@ -182,15 +188,21 @@ local function onRequestMinigameSuccess(player, findSpotId)
 		return -- silently rejected, matching every other made-up/invalid claim in this codebase
 	end
 
-	local profile = PlayerDataService.GetProfile(player)
-	if not profile then
-		return
-	end
+	ReplicatedStorage.Remotes.MinigameWin:FireClient(player, { rarity = minigame.tier, findSpotId = minigame.findSpotId })
 
-	grantWin(player, profile, minigame)
-	endMinigame(player, minigame)
+	task.delay(0.5, function()
+		local profile = PlayerDataService.GetProfile(player)
+		if profile then
+			grantWin(player, profile, minigame)
+		end
+		endMinigame(player, minigame)
+	end)
 end
 
+-- §4.5: same idea -- FailConfirmed fires immediately so the client can start
+-- its fail sequence (bar shake, red flash, slide-down) against a part that
+-- still exists, and the server only removes it once that sequence has had
+-- time to play (0.3s to start the sink/fade + 0.4s to finish it).
 local function onRequestMinigameFail(player, findSpotId)
 	local minigame = activeMinigames[player]
 	if not minigame or minigame.findSpotId ~= findSpotId then
@@ -202,8 +214,11 @@ local function onRequestMinigameFail(player, findSpotId)
 		return
 	end
 
-	endMinigame(player, minigame)
 	ReplicatedStorage.Remotes.FailConfirmed:FireClient(player)
+
+	task.delay(0.7, function()
+		endMinigame(player, minigame)
+	end)
 end
 
 local function hookFindSpot(part)

@@ -96,12 +96,18 @@ return {
 		[5] = { name = "Amethyst Shovel", power = 9, speed = 0.11, cost = 190000, robux = 200 },
 	},
 
-	-- DETECTOR TIERS (Luck multiplier, Range, Cost)
+	-- DETECTOR TIERS (Luck multiplier, Range, Cost). Numbered 1-5 rather than
+	-- the spec's own 0-4 -- ProfileStore's Reconcile silently drops a `[0]`
+	-- key in a profile default table (likely an ipairs-based copy internally,
+	-- since ipairs never visits index 0), confirmed live: ownedDetectors's
+	-- default {[0]=true} never actually reached a real saved profile. Every
+	-- other table in this game already starts at 1; this just brings
+	-- detectors in line rather than fighting that quirk forever.
 	DETECTOR_TIERS = {
-		[0] = { name = "Starter Detector", luck = 1, range = 6.0, cost = 0, robux = 0 },
-		[1] = { name = "Copper Detector", luck = 3, range = 7.5, cost = 400, robux = 9 },
-		[2] = { name = "Silver Detector", luck = 5, range = 8.0, cost = 4000, robux = 24 },
-		[3] = { name = "Gold Detector", luck = 8, range = 8.5, cost = 25000, robux = 64 },
-		[4] = { name = "Platinum Detector", luck = 12, range = 9.0, cost = 150000, robux = 200 },
+		[1] = { name = "Starter Detector", luck = 1, range = 6.0, cost = 0, robux = 0 },
+		[2] = { name = "Copper Detector", luck = 3, range = 7.5, cost = 400, robux = 9 },
+		[3] = { name = "Silver Detector", luck = 5, range = 8.0, cost = 4000, robux = 24 },
+		[4] = { name = "Gold Detector", luck = 8, range = 8.5, cost = 25000, robux = 64 },
+		[5] = { name = "Platinum Detector", luck = 12, range = 9.0, cost = 150000, robux = 200 },
 	},
 }

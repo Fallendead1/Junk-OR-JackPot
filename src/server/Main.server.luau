@@ -32,10 +32,16 @@ local REMOTE_EVENT_NAMES = {
 	"RequestPromptPurchase",
 	"PassPurchased",
 	"MinigameStart",
+	"MinigameWin",
 	"RequestMinigameClick",
 	"RequestMinigameSuccess",
 	"RequestMinigameFail",
 	"FailConfirmed",
+	"RequestBuyEquipment",
+	"RequestEquipTool",
+	"EquipConfirmed",
+	"EquipmentPurchaseRefused",
+	"OwnedEquipmentUpdated",
 }
 
 local remotesFolder = Instance.new("Folder")
@@ -68,6 +74,7 @@ local SERVICE_INIT_ORDER = {
 	"DigService",
 	"DetectorService",
 	"MinigameService",
+	"EquipmentShopService",
 }
 
 for _, serviceName in ipairs(SERVICE_INIT_ORDER) do
