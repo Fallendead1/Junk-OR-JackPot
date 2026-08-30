@@ -71,6 +71,7 @@ return {
 	MAX_CLICK_RATE = 8,
 	SUCCESS_THRESHOLD = 0.85,
 	FAIL_THRESHOLD = 0.15,
+	BAR_START_VALUE = 0.2, -- not in the spec's own text; starting at 1.0 (full) meant a single click could nearly already satisfy SUCCESS_THRESHOLD
 
 	-- METAL DETECTOR
 	SCAN_INTERVAL = 4.0,

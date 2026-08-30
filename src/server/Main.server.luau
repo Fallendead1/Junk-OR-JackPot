@@ -32,6 +32,10 @@ local REMOTE_EVENT_NAMES = {
 	"RequestPromptPurchase",
 	"PassPurchased",
 	"MinigameStart",
+	"RequestMinigameClick",
+	"RequestMinigameSuccess",
+	"RequestMinigameFail",
+	"FailConfirmed",
 }
 
 local remotesFolder = Instance.new("Folder")

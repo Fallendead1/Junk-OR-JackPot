@@ -4,23 +4,48 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
 
 local Config = require(ReplicatedStorage.Modules.Config)
+local ZoneTable = require(ReplicatedStorage.Modules.ZoneTable)
 
 local PlayerDataService = require(ServerScriptService.Services.PlayerDataService)
 local DetectorService = require(ServerScriptService.Services.DetectorService)
+local RateLimiter = require(ServerScriptService.Services.RateLimiter)
+local RevealService = require(ServerScriptService.Services.RevealService)
+local LeaderboardService = require(ServerScriptService.Services.LeaderboardService)
+local AnnounceService = require(ServerScriptService.Services.AnnounceService)
 
--- dig-minigame-spec.md Step 5: the commit trigger. Clicking an owned,
--- still-active find spot within range starts the minigame -- fully
--- validated server-side (§3.1) regardless of what the client's ClickDetector
--- already filtered out.
+-- dig-minigame-spec.md Steps 5-6: the commit trigger and the click-to-fill
+-- bar. Fully validated server-side (§3.1, §4.2) -- the client's own bar is a
+-- preview only.
 local MinigameService = {}
 
--- [player] = { findSpotId, part, tier, zone, decayPerSecond, fillPerClick }
--- Grade is deliberately not duplicated in here -- it stays in DetectorService's
--- own table, read fresh by findSpotId whenever the eventual reveal needs it.
+-- [player] = { findSpotId, part, tier, zone, decayPerSecond, fillPerClick,
+--   barValue, lastUpdateTime, clickTimestamps }
+-- Grade is deliberately not duplicated in here -- it stayed in
+-- DetectorService's table and is no longer needed once Tier is already
+-- decided (that happened back at spawn, per the confirmed spawn-time roll).
 local activeMinigames = {}
 
 function MinigameService.IsInMinigame(player)
 	return activeMinigames[player] ~= nil
+end
+
+-- Reactive rather than a running per-player loop: decay is only ever
+-- "settled" (applied for the elapsed real time) when something actually
+-- happens -- a click, or a success/fail attempt. A legitimate client already
+-- fires RequestMinigameFail the instant its own local bar hits zero, so the
+-- server never needs to notice that on its own.
+local function settleBarValue(minigame)
+	local now = os.clock()
+	local elapsed = now - minigame.lastUpdateTime
+	minigame.barValue = math.clamp(minigame.barValue - minigame.decayPerSecond * elapsed, 0, 1)
+	minigame.lastUpdateTime = now
+end
+
+local function endMinigame(player, minigame)
+	if minigame.part then
+		minigame.part:Destroy() -- plain removal for now; §4.4/§4.5's animated shrink/sink is Step 8
+	end
+	activeMinigames[player] = nil
 end
 
 local function onFindSpotClicked(player, part)
@@ -72,6 +97,9 @@ local function onFindSpotClicked(player, part)
 		zone = findData.zone,
 		decayPerSecond = decayPerSecond,
 		fillPerClick = fillPerClick,
+		barValue = Config.BAR_START_VALUE,
+		lastUpdateTime = os.clock(),
+		clickTimestamps = {},
 	}
 
 	-- Ownership of this find's lifecycle transfers to the minigame now -- the
@@ -87,6 +115,95 @@ local function onFindSpotClicked(player, part)
 		decayPerSecond = decayPerSecond,
 		fillPerClick = fillPerClick,
 	})
+end
+
+local function onRequestMinigameClick(player, findSpotId)
+	if not RateLimiter.Allow(player, "RequestMinigameClick") then
+		return
+	end
+
+	local minigame = activeMinigames[player]
+	if not minigame or minigame.findSpotId ~= findSpotId then
+		return
+	end
+
+	-- §4.2/§8: MAX_CLICK_RATE is a distinct, design-tunable cap on top of the
+	-- generic per-remote RateLimiter above -- excess clicks are silently
+	-- ignored, not an error.
+	local now = os.clock()
+	local timestamps = minigame.clickTimestamps
+	local i = 1
+	while i <= #timestamps do
+		if now - timestamps[i] > 1 then
+			table.remove(timestamps, i)
+		else
+			i += 1
+		end
+	end
+	if #timestamps >= Config.MAX_CLICK_RATE then
+		return
+	end
+	table.insert(timestamps, now)
+
+	settleBarValue(minigame)
+	minigame.barValue = math.clamp(minigame.barValue + minigame.fillPerClick, 0, 1)
+end
+
+-- §7: "Fires existing reveal flow, returns RevealResult" -- this reuses
+-- RevealService/EconomyService/LeaderboardService/AnnounceService exactly as
+-- DigService's own onRequestOpen does, since Tier was already decided back
+-- when the find spot spawned (no re-roll here, matching the confirmed fix).
+local function grantWin(player, profile, minigame)
+	local itemId, item = RevealService.PickItem(minigame.tier, minigame.zone)
+	local isNew = RevealService.ProcessReveal(player, profile, minigame.tier, itemId, item)
+
+	table.insert(profile.Data.inventory, {
+		itemId = itemId,
+		value = item.value,
+		rolledAt = os.time(),
+	})
+	local inventoryIndex = #profile.Data.inventory
+	ReplicatedStorage.Remotes.MyInventoryUpdated:FireClient(player, profile.Data.inventory)
+
+	LeaderboardService.RecordFind(player, profile, item.name, item.value)
+	AnnounceService.Announce(player, minigame.tier, item.name, item.value, ZoneTable[minigame.zone].name)
+
+	ReplicatedStorage.Remotes.RevealResult:FireClient(player, itemId, minigame.tier, item.value, isNew, inventoryIndex)
+end
+
+local function onRequestMinigameSuccess(player, findSpotId)
+	local minigame = activeMinigames[player]
+	if not minigame or minigame.findSpotId ~= findSpotId then
+		return
+	end
+
+	settleBarValue(minigame)
+	if minigame.barValue < Config.SUCCESS_THRESHOLD then
+		return -- silently rejected, matching every other made-up/invalid claim in this codebase
+	end
+
+	local profile = PlayerDataService.GetProfile(player)
+	if not profile then
+		return
+	end
+
+	grantWin(player, profile, minigame)
+	endMinigame(player, minigame)
+end
+
+local function onRequestMinigameFail(player, findSpotId)
+	local minigame = activeMinigames[player]
+	if not minigame or minigame.findSpotId ~= findSpotId then
+		return
+	end
+
+	settleBarValue(minigame)
+	if minigame.barValue > Config.FAIL_THRESHOLD then
+		return
+	end
+
+	endMinigame(player, minigame)
+	ReplicatedStorage.Remotes.FailConfirmed:FireClient(player)
 end
 
 local function hookFindSpot(part)
@@ -107,6 +224,11 @@ function MinigameService.Init()
 		hookFindSpot(part)
 	end
 	findsFolder.ChildAdded:Connect(hookFindSpot)
+
+	local remotes = ReplicatedStorage.Remotes
+	remotes.RequestMinigameClick.OnServerEvent:Connect(onRequestMinigameClick)
+	remotes.RequestMinigameSuccess.OnServerEvent:Connect(onRequestMinigameSuccess)
+	remotes.RequestMinigameFail.OnServerEvent:Connect(onRequestMinigameFail)
 
 	Players.PlayerRemoving:Connect(function(player)
 		activeMinigames[player] = nil
