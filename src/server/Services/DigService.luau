@@ -27,7 +27,11 @@ local lastDigTimeByPlayer = {}
 -- radius rather than trusting anything the client claims about where it is.
 local ZONE_DIG_SPOT_NAMES = { [1] = "DigSpot", [2] = "DigSpot2", [3] = "DigSpot3", [4] = "DigSpot4", [5] = "DigSpot5" }
 
-local function getPlayerZone(player, profile)
+-- Exported so DetectorService (dig-minigame-spec.md) can reuse the exact same
+-- "which zone is this player standing in" check rather than duplicating it --
+-- the roaming find-spot system still uses the same zone regions, only the
+-- dig interaction itself is being replaced.
+function DigService.GetPlayerZone(player, profile)
 	local character = player.Character
 	local rootPart = character and character:FindFirstChild("HumanoidRootPart")
 	if not rootPart then
@@ -78,7 +82,7 @@ local function onRequestDig(player)
 		return -- already holding as many lumps as this shovel allows
 	end
 
-	local zoneNumber = getPlayerZone(player, profile)
+	local zoneNumber = DigService.GetPlayerZone(player, profile)
 	if not zoneNumber then
 		return -- not standing in a zone the player has unlocked
 	end

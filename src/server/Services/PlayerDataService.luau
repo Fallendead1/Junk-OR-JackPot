@@ -20,9 +20,16 @@ local ProfileTemplate = {
 	-- Progression
 	currentZone = 1,
 	zonesUnlocked = { [1] = true },
-	shovelTier = 1,
+	shovelTier = 1, -- old hold-E dig system; retired once dig-minigame-spec.md's build order reaches it
 	shelfSlots = Config.SHELF_BASE_SLOTS,
 	luckBonus = 0.0,
+
+	-- Dig minigame equipment (dig-minigame-spec.md §5.3)
+	equippedDetectorTier = 0,
+	equippedShovelTier = 1,
+	ownedDetectors = { [0] = true },
+	ownedShovels = { [1] = true },
+	walkSpeedBonus = 0,
 
 	-- Collection
 	catalogue = {},

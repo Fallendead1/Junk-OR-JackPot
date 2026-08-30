@@ -50,7 +50,7 @@ local SERVICE_INIT_ORDER = {
 	"EconomyService",
 	"LumpService",
 	"ShelfService",
-	"ShovelToolService",
+	"EquipmentVisualService",
 	"UpgradeService",
 	"CatalogueService",
 	"RevealService",
@@ -61,6 +61,7 @@ local SERVICE_INIT_ORDER = {
 	"BinService",
 	"MonetizationService",
 	"DigService",
+	"DetectorService",
 }
 
 for _, serviceName in ipairs(SERVICE_INIT_ORDER) do

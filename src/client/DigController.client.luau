@@ -12,7 +12,6 @@ local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
 local remotes = ReplicatedStorage:WaitForChild("Remotes")
-local requestDig = remotes:WaitForChild("RequestDig")
 local requestSellBlind = remotes:WaitForChild("RequestSellBlind")
 local requestOpen = remotes:WaitForChild("RequestOpen")
 local requestSellItem = remotes:WaitForChild("RequestSellItem")
@@ -25,7 +24,6 @@ local catalogueUpdated = remotes:WaitForChild("CatalogueUpdated")
 local upgradePurchased = remotes:WaitForChild("UpgradePurchased")
 local upgradeRefused = remotes:WaitForChild("UpgradeRefused")
 local myShelfUpdated = remotes:WaitForChild("MyShelfUpdated")
-local passPurchased = remotes:WaitForChild("PassPurchased")
 
 -- Each zone has its own physical dig spot + prompt. The prompt's HoldDuration
 -- starts at the zone's base (Rusty shovel) time; onUpgradePurchased below
@@ -304,13 +302,13 @@ local function showHints(lumpId, hints)
 	label.Parent = billboard
 end
 
+-- dig-minigame-spec.md replaces this hold-E interaction entirely (a
+-- left-click commit on a detector find spot, System 3, takes its place).
+-- Disabled rather than deleted so the old flow is easy to compare against
+-- until the new commit trigger (build order Step 5) is actually in place.
 for _, digSpot in pairs(ZONE_DIG_SPOTS) do
 	local zonePrompt = digSpot:WaitForChild("ProximityPrompt")
-	zonePrompt.Triggered:Connect(function(triggeringPlayer)
-		if triggeringPlayer == player then
-			requestDig:FireServer()
-		end
-	end)
+	zonePrompt.Enabled = false
 end
 
 sellButton.Activated:Connect(function()
@@ -525,34 +523,15 @@ local function showLump(lumpData)
 	showHints(lumpData.lumpId, lumpData.hints)
 end
 
--- GDD §10.1: Auto-Dig repeats the dig automatically, but the SELL BLIND /
--- OPEN decision always still needs an explicit tap -- that's already
--- guaranteed here, since this only fires once the lump queue is fully empty
--- (i.e. every lump from the last dig has already been decided).
-local hasAutoDig = false
-
--- Retries rather than firing once: the server's dig cooldown is often still
--- active the instant a lump gets resolved (a single delayed attempt would
--- silently miss the window and just... stop, with no error to notice). Polls
--- until a new lump actually shows up, capped so a genuinely blocked dig
--- (out of the zone, no character, etc.) doesn't loop forever.
-local function autoDigUntilSuccess()
-	for _ = 1, 20 do
-		task.wait(0.3)
-		if currentLumpId ~= nil or not hasAutoDig then
-			return
-		end
-		requestDig:FireServer()
-	end
-end
-
+-- Auto-Dig (GDD §10.1) doesn't exist in dig-minigame-spec.md's replacement
+-- system -- there's no equivalent of "auto-repeat" once digging is a
+-- click-based minigame, and firing RequestDig on a timer here bypassed the
+-- (now-disabled) ProximityPrompt entirely, which is what was popping the
+-- SELL BLIND / OPEN panel on its own just from standing near a zone.
 local function showNextPendingLump()
 	local nextLump = table.remove(pendingLumps, 1)
 	if nextLump then
 		showLump(nextLump)
-	elseif hasAutoDig then
-		hideLumpButtons() -- clears currentLumpId so the retry loop can detect a new one arriving
-		task.spawn(autoDigUntilSuccess)
 	else
 		hideLumpButtons()
 	end
@@ -647,10 +626,4 @@ upgradeRefused.OnClientEvent:Connect(function(reason)
 			statusLabel.Text = ""
 		end
 	end)
-end)
-
-passPurchased.OnClientEvent:Connect(function(passName)
-	if passName == "autoDig" then
-		hasAutoDig = true
-	end
 end)

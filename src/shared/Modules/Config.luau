@@ -6,16 +6,12 @@ return {
 
 	-- LUCK
 	LUCK_CAP = 1.00,
-	LUCK_REINFORCED = 0.15,
-	LUCK_POWERED = 0.30,
 	LUCK_CHARM_PASS = 0.10,
 	LUCK_PER_SHARD = 0.02,
 	LUCK_SHARD_CAP = 0.40,
 	LUCK_PER_MILESTONE = 0.03,
 
 	-- COST CURVES
-	SHOVEL_BASE_COST = 8000,
-	SHOVEL_COST_MULT = 12,
 	SHELF_BASE_COST = 1000,
 	SHELF_COST_MULT = 1.7,
 
@@ -56,4 +52,54 @@ return {
 	DIG_COOLDOWN_GRACE = 0.15, -- seconds of leniency on server-side dig timing
 	MAX_REMOTE_PER_SEC = 8,
 	MAX_REMOTE_WINDOW_SECONDS = 1, -- the "sec" in MAX_REMOTE_PER_SEC
+
+	-- DIG MINIGAME (dig-minigame-spec.md, replaces the old hold-E dig system)
+	SHOVEL_DECAY_BASE = 0.08, -- bar drain per second at Power 1 vs Scrap find
+	CLICK_FILL_BASE = 0.12, -- bar fill per click at Power 1 vs Scrap find
+	RARITY_DIFFICULTY = {
+		Scrap = 0.6,
+		Common = 0.8,
+		Good = 1.0,
+		Rare = 1.3,
+		Epic = 1.7,
+		Mythic = 2.2,
+		Relic = 3.0,
+	},
+	POWER_FILL_SCALE = 0.025,
+	POWER_DECAY_SCALE = 0.006,
+	MAX_CLICK_RATE = 8,
+	SUCCESS_THRESHOLD = 0.85,
+	FAIL_THRESHOLD = 0.15,
+
+	-- METAL DETECTOR
+	SCAN_INTERVAL = 4.0,
+	SCAN_BASE_CHANCE = 0.55,
+	MAX_ACTIVE_FINDS = 3,
+	FIND_DESPAWN_TIME = 30,
+
+	-- BAR UI
+	BAR_WIDTH_PX = 500,
+	BAR_HEIGHT_PX = 40,
+	SCREEN_SHAKE_MAGNITUDE = 0.08,
+	SCREEN_SHAKE_DURATION = 0.15,
+	SWING_DOWN_DURATION = 0.08,
+	SWING_RETURN_DURATION = 0.12,
+
+	-- SHOVEL TIERS (Power, WalkSpeedBonus, Cost) -- fully replaces the old ShovelTable.luau
+	SHOVEL_TIERS = {
+		[1] = { name = "Rusty Shovel", power = 1, speed = 0.00, cost = 0, robux = 0 },
+		[2] = { name = "Stone Shovel", power = 3, speed = 0.05, cost = 1600, robux = 24 },
+		[3] = { name = "Metal Shovel", power = 5, speed = 0.07, cost = 9000, robux = 64 },
+		[4] = { name = "Gold Shovel", power = 7, speed = 0.09, cost = 45000, robux = 120 },
+		[5] = { name = "Amethyst Shovel", power = 9, speed = 0.11, cost = 190000, robux = 200 },
+	},
+
+	-- DETECTOR TIERS (Luck multiplier, Range, Cost)
+	DETECTOR_TIERS = {
+		[0] = { name = "Starter Detector", luck = 1, range = 6.0, cost = 0, robux = 0 },
+		[1] = { name = "Copper Detector", luck = 3, range = 7.5, cost = 400, robux = 9 },
+		[2] = { name = "Silver Detector", luck = 5, range = 8.0, cost = 4000, robux = 24 },
+		[3] = { name = "Gold Detector", luck = 8, range = 8.5, cost = 25000, robux = 64 },
+		[4] = { name = "Platinum Detector", luck = 12, range = 9.0, cost = 150000, robux = 200 },
+	},
 }
