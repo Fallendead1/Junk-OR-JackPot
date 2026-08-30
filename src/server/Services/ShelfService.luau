@@ -174,6 +174,25 @@ local function onProfileLoaded(player)
 	end
 end
 
+-- Fixes a real join-time race: onProfileLoaded below pushes MyShelfUpdated
+-- as soon as the profile finishes loading server-side, but a client's
+-- LocalScript can still be mid-startup at that exact moment (WaitForChild
+-- chains, UI construction) and not have its OnClientEvent listener connected
+-- yet -- RemoteEvents don't buffer missed events, so that push is just lost,
+-- leaving the client stuck on its hardcoded starting default all session.
+-- The client now asks for its own current state once it's actually ready to
+-- receive it, instead of relying solely on the server's one-shot push.
+local function onRequestMyShelf(player)
+	if not RateLimiter.Allow(player, "RequestMyShelf") then
+		return
+	end
+
+	local profile = PlayerDataService.GetProfile(player)
+	if profile then
+		sendMyShelf(player, profile)
+	end
+end
+
 local function onPlayerRemoving(player)
 	local plotNumber = plotByPlayer[player]
 	if not plotNumber then
@@ -271,6 +290,7 @@ function ShelfService.Init()
 	local remotes = ReplicatedStorage.Remotes
 	remotes.RequestPlaceShelf.OnServerEvent:Connect(onRequestPlaceShelf)
 	remotes.RequestRemoveShelf.OnServerEvent:Connect(onRequestRemoveShelf)
+	remotes.RequestMyShelf.OnServerEvent:Connect(onRequestMyShelf)
 
 	PlayerDataService.ProfileLoaded.Event:Connect(onProfileLoaded)
 	Players.PlayerRemoving:Connect(onPlayerRemoving)

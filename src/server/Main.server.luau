@@ -24,6 +24,7 @@ local REMOTE_EVENT_NAMES = {
 	"RequestPlaceShelf",
 	"RequestRemoveShelf",
 	"MyShelfUpdated",
+	"RequestMyShelf",
 	"MyInventoryUpdated",
 	"RequestClaimDaily",
 	"DailyRefused",

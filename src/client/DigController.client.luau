@@ -24,6 +24,7 @@ local catalogueUpdated = remotes:WaitForChild("CatalogueUpdated")
 local upgradePurchased = remotes:WaitForChild("UpgradePurchased")
 local upgradeRefused = remotes:WaitForChild("UpgradeRefused")
 local myShelfUpdated = remotes:WaitForChild("MyShelfUpdated")
+local requestMyShelf = remotes:WaitForChild("RequestMyShelf")
 
 -- Each zone has its own physical dig spot + prompt. The prompt's HoldDuration
 -- starts at the zone's base (Rusty shovel) time; onUpgradePurchased below
@@ -616,6 +617,13 @@ myShelfUpdated.OnClientEvent:Connect(function(shelf, shelfSlots)
 	currentShelfSlots = shelfSlots
 	refreshShopUI()
 end)
+
+-- The server also pushes this once the profile finishes loading, but that
+-- can race a slow LocalScript startup and get missed entirely (confirmed
+-- live: a real 24-slot shelf stuck showing the 12-slot default all session).
+-- Asking for it here, now that the listener above is definitely connected,
+-- means it doesn't matter whether the server's own push arrived in time.
+requestMyShelf:FireServer()
 
 upgradeRefused.OnClientEvent:Connect(function(reason)
 	statusLabel.TextColor3 = Color3.fromRGB(220, 60, 60)
