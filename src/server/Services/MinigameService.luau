@@ -12,6 +12,7 @@ local RateLimiter = require(ServerScriptService.Services.RateLimiter)
 local RevealService = require(ServerScriptService.Services.RevealService)
 local LeaderboardService = require(ServerScriptService.Services.LeaderboardService)
 local AnnounceService = require(ServerScriptService.Services.AnnounceService)
+local EquipmentVisualService = require(ServerScriptService.Services.EquipmentVisualService)
 
 -- dig-minigame-spec.md Steps 5-6: the commit trigger and the click-to-fill
 -- bar. Fully validated server-side (§3.1, §4.2) -- the client's own bar is a
@@ -46,6 +47,13 @@ local function endMinigame(player, minigame)
 		minigame.part:Destroy() -- plain removal for now; §4.4/§4.5's animated shrink/sink is Step 8
 	end
 	activeMinigames[player] = nil
+
+	EquipmentVisualService.SetShovelDigging(player, false)
+	local character = player.Character
+	if character then
+		character:SetAttribute("InMinigame", false)
+	end
+	EquipmentVisualService.RefreshDetectorForPlayer(player)
 end
 
 local function onFindSpotClicked(player, part)
@@ -105,6 +113,14 @@ local function onFindSpotClicked(player, part)
 	-- Ownership of this find's lifecycle transfers to the minigame now -- the
 	-- despawn sweep and MAX_ACTIVE_FINDS count shouldn't touch it anymore.
 	DetectorService.ReleaseFind(player, findSpotId)
+
+	-- §3.2: shovel comes out, detector tucks back to the side for the
+	-- duration. The InMinigame attribute tells EquipmentVisualService's own
+	-- zone-check loop to leave the detector alone while this is set, rather
+	-- than fighting this override on its next tick.
+	character:SetAttribute("InMinigame", true)
+	EquipmentVisualService.SetShovelDigging(player, true)
+	EquipmentVisualService.SetDetectorHeld(player, false)
 
 	-- §3.1/§7 payload, minus Grade -- GDD §12.3 says the Grade roll must
 	-- never reach the client, and this is a plain RemoteEvent argument.
