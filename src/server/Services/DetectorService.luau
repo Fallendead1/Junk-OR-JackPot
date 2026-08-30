@@ -181,6 +181,15 @@ local function spawnFindSpot(player, zoneNumber, position, grade, tier)
 	part:SetAttribute("Zone", zoneNumber)
 	part:SetAttribute("SpawnTime", os.time())
 	part:SetAttribute("Active", true)
+	part:SetAttribute("FindSpotId", findSpotId)
+
+	-- dig-minigame-spec.md §3.1: the left-click commit trigger. MinigameService
+	-- listens for these rather than DetectorService owning the click logic
+	-- itself -- spawning/despawning finds and reacting to a commit are
+	-- separate concerns.
+	local clickDetector = Instance.new("ClickDetector")
+	clickDetector.MaxActivationDistance = Config.COMMIT_TRIGGER_RANGE
+	clickDetector.Parent = part
 
 	playRevealVFX(part, tier)
 
@@ -263,6 +272,27 @@ local function clearFindsForPlayer(player)
 		find.part:Destroy()
 	end
 	activeFindsByPlayer[player] = nil
+end
+
+-- Returns the server-only { part, grade, tier, zone, spawnTime } for a find
+-- this player owns, or nil if it doesn't exist (expired, already claimed, or
+-- never existed). MinigameService uses this to get the Grade for the reveal
+-- roll -- Grade itself never left this table, so this is also the only way
+-- to reach it.
+function DetectorService.GetFindData(player, findSpotId)
+	local finds = activeFindsByPlayer[player]
+	return finds and finds[findSpotId]
+end
+
+-- Hands ownership of a find's lifecycle to whoever just claimed it (the
+-- minigame) -- removes it from this service's own bookkeeping (the despawn
+-- sweep, the MAX_ACTIVE_FINDS count) without touching the Part itself, since
+-- the minigame still needs it visible on screen until it wins or fails.
+function DetectorService.ReleaseFind(player, findSpotId)
+	local finds = activeFindsByPlayer[player]
+	if finds then
+		finds[findSpotId] = nil
+	end
 end
 
 function DetectorService.Init()

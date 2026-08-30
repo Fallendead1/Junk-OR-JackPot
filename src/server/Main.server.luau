@@ -31,6 +31,7 @@ local REMOTE_EVENT_NAMES = {
 	"LeaderboardResult",
 	"RequestPromptPurchase",
 	"PassPurchased",
+	"MinigameStart",
 }
 
 local remotesFolder = Instance.new("Folder")
@@ -62,6 +63,7 @@ local SERVICE_INIT_ORDER = {
 	"MonetizationService",
 	"DigService",
 	"DetectorService",
+	"MinigameService",
 }
 
 for _, serviceName in ipairs(SERVICE_INIT_ORDER) do

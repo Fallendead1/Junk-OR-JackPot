@@ -54,6 +54,7 @@ return {
 	MAX_REMOTE_WINDOW_SECONDS = 1, -- the "sec" in MAX_REMOTE_PER_SEC
 
 	-- DIG MINIGAME (dig-minigame-spec.md, replaces the old hold-E dig system)
+	COMMIT_TRIGGER_RANGE = 6, -- studs; §3.1/§7 state this explicitly but it was missing from the spec's own Config block
 	SHOVEL_DECAY_BASE = 0.08, -- bar drain per second at Power 1 vs Scrap find
 	CLICK_FILL_BASE = 0.12, -- bar fill per click at Power 1 vs Scrap find
 	RARITY_DIFFICULTY = {
